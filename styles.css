@@ -103,7 +103,9 @@ strong { font-weight: 650; }
 .impostazioni .riga-impostazione {
   display: flex; align-items: center; gap: .6rem;
   padding: .5rem 0; font-size: .95rem;
+  min-width: 0;
 }
+.impostazioni .riga-impostazione > span { min-width: 0; }
 .impostazioni select {
   margin-left: auto;
   background: var(--fondo-scheda-alta);
@@ -113,6 +115,9 @@ strong { font-weight: 650; }
   padding: .45rem .6rem;
   font: inherit;
   font-size: .9rem;
+  /* Un <select> si allarga fino all'opzione piu' lunga: senza un tetto,
+     sul telefono spinge la pagina oltre il bordo. */
+  max-width: 62%; min-width: 0;
 }
 .impostazioni input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--accento); }
 
