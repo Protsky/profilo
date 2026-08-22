@@ -352,3 +352,33 @@ summary { cursor: pointer; color: var(--accento); font-size: .9rem; padding: .3r
     font-size: 9pt; color: #000;
   }
 }
+
+/* ---------- fasce di avviso in cima ---------- */
+/* Due sole, e dicono due cose diverse: "ho ritrovato il tuo lavoro" sparisce
+   da sola dopo qualche secondo, "non riesco a salvare" resta finché resta il
+   problema, perché è l'unica cosa che sta fra te e il perdere mezz'ora. */
+
+.fascia {
+  position: sticky; top: 0; z-index: 20;
+  margin: 0 -1rem .6rem;
+  padding: .7rem 1rem;
+  font-size: .9rem;
+  transition: opacity .6s ease, transform .6s ease;
+}
+.fascia p { margin: 0; max-width: var(--colonna); margin-inline: auto; }
+.fascia.sparisce { opacity: 0; transform: translateY(-6px); }
+
+.fascia.ripresa {
+  background: color-mix(in srgb, var(--buono) 18%, var(--fondo));
+  color: var(--testo);
+  border-bottom: 1px solid color-mix(in srgb, var(--buono) 45%, transparent);
+}
+.fascia.guasto {
+  background: var(--allarme-fondo);
+  color: var(--allarme);
+  border-bottom: 1px solid var(--allarme);
+  font-weight: 600;
+}
+
+/* La barra di avanzamento sta sotto la fascia, non sopra. */
+.fascia + .barra-alta { top: 0; }

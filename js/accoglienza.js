@@ -2,7 +2,9 @@
 // si può arrivare qui (mai iniziato / a metà / finito).
 
 import { MODULI, conteggio, STRUMENTI_PER_ID } from "./batteria.js";
+import * as storage from "./storage.js";
 import { carica, salva, azzera, esiste } from "./storage.js";
+import { leggiPacchetto } from "./esporta.js";
 
 const $ = (s) => document.querySelector(s);
 let sessione = carica();
@@ -111,9 +113,123 @@ function esc(s) {
   }[c]));
 }
 
-// L'uso senza rete si prepara a mano, con un pulsante, invece di registrare un
-// service worker di nascosto alla prima apertura: chi mette in cache
-// venticinque file sul dispositivo di qualcuno dovrebbe averlo chiesto.
+// Un'app installabile deve avere un service worker registrato: finché stava
+// dietro a un pulsante, il browser non offriva nemmeno di installarla. Adesso
+// si registra all'apertura. Resta "prima la rete, poi la copia", quindi non
+// nasconde gli aggiornamenti.
+function registraServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  if (location.protocol !== "https:" && location.hostname !== "localhost") return;
+  navigator.serviceWorker.register("sw.js").catch((e) => {
+    console.warn("service worker non registrato", e);
+  });
+}
+
+// Chrome avvisa quando l'app si puo' installare: si mostra il pulsante solo
+// allora, così non si promette un bottone che non fa niente.
+let promptInstallazione = null;
+
+function collegaInstallazione() {
+  const bottone = document.querySelector("#installa");
+  const istruzioniIos = document.querySelector("#istruzioni-ios");
+  const stato = document.querySelector("#stato-installazione");
+  if (!bottone) return;
+
+  if (storage.installata()) {
+    bottone.hidden = true;
+    stato.innerHTML =
+      "Sta già girando come app installata: le tue risposte sono al riparo " +
+      "dalla pulizia automatica che il browser fa sui siti poco usati.";
+    return;
+  }
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    promptInstallazione = e;
+    bottone.hidden = false;
+  });
+
+  bottone.addEventListener("click", async () => {
+    if (!promptInstallazione) return;
+    promptInstallazione.prompt();
+    const esito = await promptInstallazione.userChoice;
+    promptInstallazione = null;
+    bottone.hidden = true;
+    if (esito.outcome === "accepted") {
+      stato.textContent = "Installata. Aprila dall'icona: da lì le risposte non vengono più cancellate da sole.";
+    }
+  });
+
+  // Su iOS l'evento non esiste e non esisterà: si spiega a mano.
+  const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  if (iOS) istruzioniIos.hidden = false;
+}
+
+async function mostraStatoArchiviazione() {
+  const el = document.querySelector("#stato-archiviazione");
+  if (!el) return;
+  const persistenza = await storage.chiediPersistenza();
+  const stato = await storage.statoArchiviazione();
+  const pezzi = [];
+  if (persistenza.supportata) {
+    pezzi.push(
+      persistenza.concessa || stato.persistente
+        ? "Il browser ha promesso di non cancellare questi dati per fare spazio."
+        : "Il browser non ha promesso di conservare i dati: aggiungere l'app alla Home è la difesa vera."
+    );
+  }
+  if (stato.usatiKB !== null) {
+    pezzi.push("Occupato finora: " + stato.usatiKB + " KB.");
+  }
+  el.textContent = pezzi.join(" ");
+}
+
+function collegaImportazione() {
+  const bottone = document.querySelector("#importa");
+  const input = document.querySelector("#file-importa");
+  const esito = document.querySelector("#esito-importa");
+  if (!bottone || !input) return;
+
+  bottone.addEventListener("click", () => input.click());
+
+  input.addEventListener("change", async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    try {
+      const testo = await file.text();
+      const letto = leggiPacchetto(testo);
+      const quante = Object.keys(letto.risposte).length;
+
+      const conferma = confirm(
+        "Il file contiene " + quante + " risposte" +
+        (letto.iniziata ? " (sessione del " + letto.iniziata.slice(0, 10) + ")" : "") +
+        ". Rimpiazza quello che c'è adesso su questo dispositivo. Procedo?"
+      );
+      if (!conferma) { input.value = ""; return; }
+
+      sessione = Object.assign(azzera(), {
+        risposte: letto.risposte,
+        disagio: letto.disagio,
+        tempi: letto.tempi,
+        lingua: letto.lingua,
+        seme: letto.seme,
+        iniziata: letto.iniziata || new Date().toISOString(),
+        conclusa: letto.conclusa,
+      });
+      const ok = salva(sessione);
+      esito.textContent = ok
+        ? "Rilette " + quante + " risposte. Da qui puoi riprendere o vedere il profilo."
+        : "Lette, ma non sono riuscito a salvarle su questo dispositivo.";
+      disegnaModuli();
+      disegnaAzioni();
+    } catch (e) {
+      esito.textContent = "Non sono riuscito a leggerlo: " + e.message;
+    }
+    input.value = "";
+  });
+}
+
 function collegaOffline() {
   const b = document.querySelector("#prepara-offline");
   const esito = document.querySelector("#esito-offline");
@@ -146,7 +262,11 @@ function collegaOffline() {
   });
 }
 
+registraServiceWorker();
 disegnaModuli();
 disegnaAzioni();
 collegaImpostazioni();
 collegaOffline();
+collegaInstallazione();
+collegaImportazione();
+mostraStatoArchiviazione();

@@ -61,10 +61,15 @@ certificazioni mediche di qualunque genere.
 https://protsky.github.io/profilo/
 ```
 
-Aprilo nel browser del telefono. Su iPhone: **Condividi → Aggiungi a Home**, e
-diventa un'icona come un'app qualsiasi. Poi, nelle impostazioni in fondo alla
-pagina, premi **Prepara** alla riga «Uso senza rete»: da lì funziona anche in
-aereo o in montagna.
+Aprilo nel browser del telefono e **installalo**: su Android compare il pulsante
+«Installa l'app», su iPhone si fa con **Condividi → Aggiungi a Home**. Diventa
+un'icona come qualunque altra app, si apre a schermo intero e funziona senza rete.
+
+Installarlo non è una comodità estetica. **Safari cancella i dati dei siti non
+usati per sette giorni**, e un test da 226 domande lo si fa in più sedute: se
+resta una scheda del browser, le risposte a metà strada possono sparire da sole.
+I dati di un'app aggiunta alla Home no. Dove il browser lo permette, l'app chiede
+anche la «persistenza» dell'archiviazione, che rende i dati non sfrattabili.
 
 Le risposte restano **sul telefono**, nel browser. L'hosting consegna i file e
 basta: non riceve niente, non c'è nessun account, nessun server che sappia che
@@ -112,6 +117,41 @@ rotta che riceva dati. Si può staccare la rete a metà test senza che cambi
 niente. Rovescio della medaglia: se svuoti i dati del browser le risposte
 spariscono, e da un altro dispositivo non ci sono. Per portarle via c'è
 l'esportazione in JSON.
+
+---
+
+## I progressi, e come portarli via
+
+### Non si perde niente a metà strada
+
+Il salvataggio avviene a **ogni singola risposta**, non a fine blocco. Se il
+telefono si spegne, la batteria muore o il browser uccide la scheda, quello che
+hai risposto è già scritto: alla riapertura compare una fascia «Ripreso da dove
+eri: N domande su M» e il test riparte dalla prima domanda senza risposta. La
+fascia resta finché non rispondi davvero — a tempo non andava bene, chi riapre
+dopo due giorni sta ancora capendo dov'era rimasto.
+
+Se il salvataggio **fallisce** (navigazione privata, spazio esaurito) compare una
+fascia rossa che resta lì. Prima l'errore finiva solo in console, dove non guarda
+nessuno: e si continuava a rispondere per mezz'ora credendo di salvare.
+
+### Tre formati, per tre usi diversi
+
+Alla fine del profilo:
+
+| Formato | A cosa serve |
+|---|---|
+| **JSON completo** | Tutto: risposte, testo delle domande, punteggi, indici di validità, soglie, fonti e licenze. Si descrive da sé: si rianalizza mesi dopo, con uno script, **senza avere questa app sotto mano**. È anche l'unico file che si può **rimettere dentro** dalla pagina iniziale — per passare a un altro dispositivo o tornare indietro dopo aver svuotato il browser. |
+| **CSV, una riga per domanda** | Il formato lungo che vogliono pandas e R: `id_item, strumento, scala, invertito, testo_it, testo_en, risposta_grezza, valore_corretto, disagio, tempo_ms, provenienza`. La colonna `valore_corretto` ha già l'inversione applicata, quindi si ricalcola tutto da zero senza rifare la chiave. |
+| **CSV, una riga per scala** | I punteggi già fatti, con banda d'errore, soglia e se è stata superata. Per un grafico veloce. |
+
+I CSV seguono RFC 4180 (virgola, virgolette doppie raddoppiate): pandas e R li
+leggono senza opzioni. Excel in italiano potrebbe volere il punto e virgola —
+questi file nascono per gli altri due.
+
+Una prova del selftest esporta, rilegge e **confronta**: il JSON deve rientrare
+identico, e la colonna `valore_corretto` del CSV deve coincidere con il conto
+fatto a mano su tutti e 46 gli item invertiti.
 
 ---
 
@@ -311,7 +351,7 @@ cliccando i bottoni reali sulle pagine reali — niente stato infilato a mano in
 localStorage per far partire il codice da metà strada, che è il modo in cui i
 bug arrivano in fondo con la suite verde.
 
-Quattordici prove, tutte verdi sulla batteria intera da 226 item.
+Quindici prove, tutte verdi sulla batteria intera da 226 item.
 
 | Prova | Cosa deve succedere |
 |---|---|
@@ -328,8 +368,9 @@ Quattordici prove, tutte verdi sulla batteria intera da 226 item.
 | Lessico del referto | nessuna frase vietata nel testo generato |
 | Norme | nessun percentile senza norma, e il referto lo dichiara |
 | Valore predittivo | ogni segnalazione arriva col suo conto |
+| Esportazione | il JSON rientra identico, il CSV ha i valori già raddrizzati |
 
-### Due bug trovati dalle prove, non a occhio
+### Tre bug trovati dalle prove, non a occhio
 
 **Il long-string contava anche i sì/no.** La prima versione contava come
 «risposte identiche di fila» qualunque sequenza uguale, PQ-16 compreso. Ma
@@ -345,10 +386,18 @@ presi prima sono staccati dal documento. La prova «interrotto e ripreso» è
 uscita con due risposte di scarto fra un giro e l'altro, che è esattamente il
 genere di differenza che a occhio non si vede.
 
-Nessuno dei due sarebbe emerso da una suite che prepara lo stato a mano: il
-primo richiede di compilare davvero un questionario sì/no dall'inizio alla
-fine, il secondo di cliccare sui bottoni veri mentre la pagina si ridisegna
-sotto.
+**Il salvataggio d'uscita resuscitava le sessioni cancellate.** Aggiungendo il
+salvataggio su `pagehide` — quello che protegge i progressi quando il telefono
+chiude la pagina — si è introdotto un bug: l'evento scatta anche mentre la
+pagina se ne va *perché la sessione è appena stata cancellata*, e riscriveva in
+memoria quello che era appena stato buttato via. In pratica «cancella tutto e
+ricomincia» non cancellava niente. Quattro prove sono diventate rosse nello
+stesso momento, tutte per questa causa.
+
+Nessuno dei tre sarebbe emerso da una suite che prepara lo stato a mano: il
+primo richiede di compilare davvero un questionario sì/no dall'inizio alla fine,
+il secondo di cliccare sui bottoni veri mentre la pagina si ridisegna sotto, il
+terzo di navigare via da una pagina vera dopo aver svuotato l'archivio.
 
 ---
 

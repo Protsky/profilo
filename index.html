@@ -7,6 +7,11 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Profilo">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#141821">
 </head>
 <body class="accoglienza">
@@ -110,6 +115,36 @@
       Scarica i file una volta sola, così il test funziona anche in aereo o in
       montagna. Le risposte restano comunque solo qui.
     </p>
+  </section>
+
+  <section class="scheda" id="scheda-app">
+    <h2>Tenerlo sul telefono</h2>
+    <p class="minore" id="stato-installazione">
+      Aggiungilo alla schermata Home e diventa un'app: si apre a schermo intero,
+      funziona senza rete, e — la parte che conta — <strong>Safari smette di
+      poter cancellare le tue risposte</strong>. I dati dei siti aperti nel
+      browser vengono buttati via dopo qualche giorno di inattività; quelli di
+      un'app aggiunta alla Home no.
+    </p>
+    <button class="primario" id="installa" hidden>Installa l'app</button>
+    <p class="minore" id="istruzioni-ios" hidden>
+      Su iPhone: tocca <strong>Condividi</strong> in fondo allo schermo, poi
+      <strong>Aggiungi a Home</strong>.
+    </p>
+    <p class="minore" id="stato-archiviazione"></p>
+  </section>
+
+  <section class="scheda">
+    <h2>Riprendere da un file</h2>
+    <p class="minore">
+      Se hai esportato il <strong>JSON completo</strong> alla fine di una
+      sessione, puoi rimetterlo dentro qui: per continuare su un altro
+      dispositivo, o per tornare indietro dopo aver svuotato il browser.
+      Sostituisce le risposte che ci sono adesso.
+    </p>
+    <input type="file" id="file-importa" accept=".json,application/json" hidden>
+    <button class="secondario" id="importa">Scegli un file da rileggere</button>
+    <p class="minore" id="esito-importa"></p>
   </section>
 
   <div class="azioni-principali">

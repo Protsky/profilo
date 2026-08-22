@@ -7,7 +7,7 @@
 // ed è il modo classico per passare mezz'ora a chiedersi perché una correzione
 // non si vede.
 
-const CACHE = "profilo-v1";
+const CACHE = "profilo-v2";
 
 const FILE = [
   "./",
@@ -18,6 +18,10 @@ const FILE = [
   "./styles.css",
   "./manifest.webmanifest",
   "./icon.svg",
+  "./icon-192.png",
+  "./icon-512.png",
+  "./icon-180.png",
+  "./icon-512-maskable.png",
   "./js/accoglienza.js",
   "./js/batteria.js",
   "./js/somministra.js",
@@ -29,6 +33,7 @@ const FILE = [
   "./js/referto.js",
   "./js/grafici.js",
   "./js/storage.js",
+  "./js/esporta.js",
   "./js/norme.js",
   "./js/selftest.js",
   "./js/strumenti/bfas.js",

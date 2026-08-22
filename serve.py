@@ -34,12 +34,29 @@ mimetypes.add_type("text/markdown", ".md")
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    # Python risponde in HTTP/1.0 se non glielo si dice: HTTP/1.1 tiene aperta
+    # la connessione ed e' quello che si aspetta qualunque client moderno.
+    protocol_version = "HTTP/1.1"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
 
     def end_headers(self):
-        # In sviluppo la cache nasconde le modifiche appena fatte.
-        self.send_header("Cache-Control", "no-store")
+        # In sviluppo la cache nasconde le modifiche appena fatte, quindi si
+        # spegne. Il service worker fa eccezione e prende "no-cache" invece di
+        # "no-store": i browser rivalidano comunque quello script a ogni
+        # apertura, e "no-store" su un file che deve sopravvivere offline e' una
+        # contraddizione.
+        #
+        # NOTA per chi prova la PWA in locale: alcuni browser danno i service
+        # worker solo su https, e allora su http://localhost la registrazione
+        # fallisce con un generico "unknown error occurred when fetching the
+        # script". Non e' un problema dell'app: si prova con `python serve.py`
+        # (https, col certificato) oppure direttamente sul sito pubblicato.
+        if self.path.split("?")[0].endswith("sw.js"):
+            self.send_header("Cache-Control", "no-cache")
+        else:
+            self.send_header("Cache-Control", "no-store")
         # Niente CORS aperto: qui non c'e' nessun ponte da aprire a nessuno.
         super().end_headers()
 

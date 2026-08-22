@@ -15,6 +15,7 @@ import * as grafici from "./grafici.js";
 import * as referto from "./referto.js";
 import { controlla, CONTATTI, messaggio, DA_DOVE_VALGONO } from "./sicurezza.js";
 import { NORME } from "./norme.js";
+import * as esporta from "./esporta.js";
 import bfas from "./strumenti/bfas.js";
 import pid5bf from "./strumenti/pid5bf.js";
 import mdq from "./strumenti/mdq.js";
@@ -528,22 +529,53 @@ function bloccoEsportazione() {
   s.appendChild(
     p(
       lingua === "en"
-        ? "Everything is on this device only. Export the answers if you want to keep them, or bring them to someone."
-        : "È tutto solo su questo dispositivo. Esporta le risposte se vuoi conservarle, o portarle a qualcuno.",
+        ? "Everything is on this device only. These files are the way out: to keep them, to move to another device, or to re-analyse the answers elsewhere."
+        : "È tutto solo su questo dispositivo. Questi file sono la via d'uscita: per conservarli, per passare a un altro dispositivo, o per rianalizzare le risposte altrove.",
       "minore"
     )
   );
 
-  const b = document.createElement("button");
-  b.className = "secondario";
-  b.textContent = lingua === "en" ? "Export answers (JSON)" : "Esporta le risposte (JSON)";
-  b.addEventListener("click", () => {
-    storage.scarica(
-      "profilo-" + new Date().toISOString().slice(0, 10) + ".json",
-      storage.esportaJSON(sessione)
-    );
+  const formati = [
+    {
+      etichetta: { it: "JSON completo", en: "Full JSON" },
+      spiega: {
+        it: "Tutto: risposte, testo delle domande, punteggi, indici di validità, soglie e fonti. Si descrive da sé, quindi si rianalizza senza bisogno di questa app. È anche l'unico file che si può rimettere dentro, dalla pagina iniziale.",
+        en: "Everything, self-describing. Also the only file that can be imported back.",
+      },
+      classe: "primario",
+      fai: () => storage.scarica(esporta.nomeFile("completo", "json"),
+                                 JSON.stringify(esporta.pacchetto(sessione), null, 2)),
+    },
+    {
+      etichetta: { it: "CSV, una riga per domanda", en: "CSV, one row per item" },
+      spiega: {
+        it: "Il formato lungo che vogliono pandas e R: id, scala, se è invertito, testo, risposta grezza, valore già raddrizzato, tempo impiegato. Da qui si ricalcola tutto da zero.",
+        en: "The long format pandas and R want.",
+      },
+      classe: "secondario",
+      fai: () => storage.scarica(esporta.nomeFile("item", "csv"),
+                                 esporta.csvItem(sessione), "text/csv"),
+    },
+    {
+      etichetta: { it: "CSV, una riga per scala", en: "CSV, one row per scale" },
+      spiega: {
+        it: "I punteggi già fatti, con banda d'errore e soglia: comodo per un grafico senza rifare i conti.",
+        en: "Scores already computed, with error band and cutoff.",
+      },
+      classe: "secondario",
+      fai: () => storage.scarica(esporta.nomeFile("punteggi", "csv"),
+                                 esporta.csvPunteggi(sessione), "text/csv"),
+    },
+  ];
+
+  formati.forEach((f) => {
+    const b = document.createElement("button");
+    b.className = f.classe;
+    b.textContent = f.etichetta[lingua] || f.etichetta.it;
+    b.addEventListener("click", f.fai);
+    s.appendChild(b);
+    s.appendChild(p(f.spiega[lingua] || f.spiega.it, "minore"));
   });
-  s.appendChild(b);
 
   const stampa = document.createElement("button");
   stampa.className = "terziario";

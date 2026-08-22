@@ -16,6 +16,7 @@ import { valoreItem, punteggioScala } from "./punteggi.js";
 import { frasiVietateIn } from "./referto.js";
 import { NORME } from "./norme.js";
 import { CONTROLLI } from "./validita.js";
+import * as esporta from "./esporta.js";
 
 const telaio = document.querySelector("#telaio");
 const esiti = document.querySelector("#esiti");
@@ -376,6 +377,66 @@ async function provaCondizionali() {
   );
 }
 
+async function provaEsportazione() {
+  // I file esportati devono reggere una rianalisi fatta altrove, mesi dopo,
+  // da uno script che non ha questa app sotto mano. Quindi non basta che
+  // "si scarichino": il CSV deve contenere il valore gia' raddrizzato per
+  // l'inversione, e il JSON deve poter rientrare identico.
+  await apri("test.html");
+  await compila(sceglValoreProva);
+  const s = sessione();
+
+  const pkg = esporta.pacchetto(s);
+  const cItem = esporta.csvItem(s);
+  const cPunt = esporta.csvPunteggi(s);
+
+  // 1. il JSON rientra identico
+  const riletto = esporta.leggiPacchetto(JSON.stringify(pkg));
+  const chiavi = new Set([...Object.keys(s.risposte), ...Object.keys(riletto.risposte)]);
+  const diverse = [...chiavi].filter((k) => Number(s.risposte[k]) !== Number(riletto.risposte[k]));
+
+  // 2. il CSV ha una riga per item di strumento, piu' l'intestazione
+  const righe = cItem.trim().split("\r\n");
+  const itemDiStrumento = pkg.item.length;
+
+  // 3. il valore_corretto nel CSV coincide col conto fatto a mano su un item
+  //    invertito: e' la colonna su cui si baserebbe qualunque rianalisi
+  const intestazione = righe[0].split(",");
+  const iId = intestazione.indexOf("id_item");
+  const iInv = intestazione.indexOf("invertito");
+  const iGrezza = intestazione.indexOf("risposta_grezza");
+  const iCorretto = intestazione.indexOf("valore_corretto");
+  let sbagliati = 0;
+  let invertitiControllati = 0;
+  for (const r of righe.slice(1)) {
+    // le righe con virgolette contengono virgole nel testo: salto quelle,
+    // qui interessa solo la coerenza numerica
+    if (r.indexOf('"') >= 0) continue;
+    const c = r.split(",");
+    if (!c[iId] || !c[iId].startsWith("bfas_")) continue;
+    if (c[iGrezza] === "") continue;
+    const invertito = c[iInv] === "1";
+    const atteso = invertito ? 6 - Number(c[iGrezza]) : Number(c[iGrezza]);
+    if (invertito) invertitiControllati++;
+    if (Number(c[iCorretto]) !== atteso) sbagliati++;
+  }
+
+  const ok =
+    diverse.length === 0 &&
+    righe.length === itemDiStrumento + 1 &&
+    cPunt.trim().split("\r\n").length > 20 &&
+    sbagliati === 0 &&
+    invertitiControllati > 10;
+
+  segna(
+    "Esportazione: il JSON rientra identico e il CSV ha i valori raddrizzati",
+    ok,
+    diverse.length + " risposte diverse dopo il giro, " +
+      (righe.length - 1) + " righe CSV su " + itemDiStrumento + " item, " +
+      invertitiControllati + " item invertiti controllati, " + sbagliati + " sbagliati"
+  );
+}
+
 async function provaLessicoReferto() {
   // Questa è la compilazione "attenta": risposte coerenti, controlli di
   // attenzione rispettati e TEMPO VERO fra una risposta e l'altra. È l'unica
@@ -439,6 +500,7 @@ async function provaValorePredittivo(testoReferto) {
   await provaPunteggiAMano();
   await provaInterrottoRipreso();
   await provaCondizionali();
+  await provaEsportazione();
   const testo = await provaLessicoReferto();
   await provaNormeNonInventate(testo);
   await provaValorePredittivo(testo);

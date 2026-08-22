@@ -6,7 +6,7 @@ import {
   costruisci, inBlocchi, moduloDi, STRUMENTI_PER_ID, MODULI,
   condizioneSoddisfatta, controllori,
 } from "./batteria.js";
-import { carica, salva } from "./storage.js";
+import { carica, salva, seNonRiesceASalvare, quanteRisposte, esiste } from "./storage.js";
 import { controlla, messaggio, CONTATTI, DA_DOVE_VALGONO } from "./sicurezza.js";
 import pq16 from "./strumenti/pq16.js";
 
@@ -32,6 +32,13 @@ function t(oggetto) {
 // --- avvio ---
 
 export function avvia() {
+  const giaFatte = quanteRisposte(sessione);
+
+  // Se il salvataggio smette di funzionare, la persona deve saperlo SUBITO:
+  // continuare a rispondere per mezz'ora credendo di star salvando e'
+  // il modo peggiore di perdere il lavoro.
+  seNonRiesceASalvare(mostraFasciaSalvataggio);
+
   if (!sessione.iniziata) {
     sessione.iniziata = new Date().toISOString();
     sessione.seme = Math.floor(Math.random() * 1e9);
@@ -51,7 +58,76 @@ export function avvia() {
   if (bloccoCorrente < 0) bloccoCorrente = blocchi.length; // tutto fatto
 
   salva(sessione);
+  if (giaFatte > 0 && !sessione.conclusa) {
+    // Stesso totale che mostra la barra di avanzamento: le domande escluse da
+    // una condizione non sono da fare, quindi non entrano nel conto.
+    const applicabili = lista.filter((i) => condizioneSoddisfatta(i, sessione.risposte));
+    mostraFasciaRipresa(giaFatte, applicabili.length);
+  }
   disegna();
+}
+
+// Quando il telefono chiude la pagina per fare spazio, o si passa a un'altra
+// app, questo e' l'ultimo momento utile per scrivere. Le risposte sono gia'
+// salvate una per una, ma la posizione nel blocco no: senza, si riparte
+// dall'inizio del blocco invece che da dove si era.
+function salvaUscendo() {
+  // LA GUARDIA CONTA, e l'ha trovata il selftest. Questo scatta anche mentre
+  // la pagina se ne va perché qualcuno ha appena cancellato la sessione: senza
+  // il controllo si riscriverebbe in memoria la sessione appena buttata via, e
+  // «cancella tutto e ricomincia» non cancellerebbe un bel niente. Se la chiave
+  // non c'è più, è perché qualcuno l'ha tolta apposta.
+  if (!esiste()) return;
+  sessione.posizione = bloccoCorrente;
+  salva(sessione);
+}
+
+window.addEventListener("pagehide", salvaUscendo);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") salvaUscendo();
+});
+
+// --- fasce di avviso ---
+
+function fascia(classe, testo, azione) {
+  const vecchia = document.querySelector(".fascia." + classe);
+  if (vecchia) vecchia.remove();
+  const d = document.createElement("div");
+  d.className = "fascia " + classe;
+  const p = document.createElement("p");
+  p.textContent = testo;
+  d.appendChild(p);
+  if (azione) d.appendChild(azione);
+  document.body.insertBefore(d, document.body.firstChild);
+  return d;
+}
+
+function mostraFasciaRipresa(fatte, totale) {
+  const d = fascia(
+    "ripresa",
+    lingua() === "en"
+      ? "Picked up where you left off: " + fatte + " of " + totale + " answered."
+      : "Ripreso da dove eri: " + fatte + " domande su " + totale + " già fatte."
+  );
+  // Resta finche' non riprendi davvero a rispondere. A tempo non andava bene:
+  // chi riapre l'app dopo due giorni sta ancora capendo dov'era rimasto,
+  // e un messaggio che sparisce da solo dopo quattro secondi se lo perde.
+}
+
+function viaLaFasciaRipresa() {
+  const d = document.querySelector(".fascia.ripresa");
+  if (!d) return;
+  d.classList.add("sparisce");
+  setTimeout(() => d.remove(), 600);
+}
+
+function mostraFasciaSalvataggio() {
+  fascia(
+    "guasto",
+    lingua() === "en"
+      ? "Cannot save on this device: answers from here on will be lost if you close the page. Private browsing or a full storage usually explains it."
+      : "Non riesco a salvare su questo dispositivo: da qui in avanti, se chiudi la pagina le risposte si perdono. Di solito è la navigazione privata, o lo spazio esaurito."
+  );
 }
 
 // --- disegno ---
@@ -192,6 +268,7 @@ function rispondi(item, valore, gruppo) {
   }
 
   sessione.risposte[item.id] = valore;
+  viaLaFasciaRipresa(); // ha ripreso davvero: il messaggio ha finito il suo lavoro
   gruppo.querySelectorAll(".opzione").forEach((b) => {
     b.classList.toggle("scelta", Number(b.dataset.valore) === Number(valore));
   });

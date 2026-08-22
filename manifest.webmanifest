@@ -1,11 +1,56 @@
 {
+  "id": "/profilo/",
   "name": "Profilo — batteria psicologica dimensionale",
   "short_name": "Profilo",
+  "description": "Questionari di autovalutazione letti come dimensioni continue. Non diagnostica: i dati restano sul dispositivo.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
   "background_color": "#10131a",
   "theme_color": "#141821",
   "lang": "it",
-  "description": "Questionari di autovalutazione letti come dimensioni continue. Non diagnostica: i dati restano sul dispositivo."
+  "dir": "ltr",
+  "categories": ["health", "medical", "education"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Riprendi il test",
+      "short_name": "Riprendi",
+      "description": "Torna alla prima domanda senza risposta",
+      "url": "./test.html"
+    },
+    {
+      "name": "Vedi il profilo",
+      "short_name": "Profilo",
+      "description": "Il risultato con quello che hai risposto finora",
+      "url": "./profilo.html"
+    }
+  ]
 }
