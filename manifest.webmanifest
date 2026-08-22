@@ -1,0 +1,11 @@
+{
+  "name": "Profilo — batteria psicologica dimensionale",
+  "short_name": "Profilo",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#10131a",
+  "theme_color": "#141821",
+  "lang": "it",
+  "description": "Questionari di autovalutazione letti come dimensioni continue. Non diagnostica: i dati restano sul dispositivo."
+}

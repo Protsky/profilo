@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Profilo — batteria psicologica dimensionale</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#141821">
+</head>
+<body class="accoglienza">
+
+<main id="app">
+
+  <header class="testata">
+    <h1>Profilo</h1>
+    <p class="occhiello">Una batteria di questionari di autovalutazione, letti come dimensioni continue invece che come etichette.</p>
+  </header>
+
+  <section class="scheda cornice">
+    <h2>Cosa è, e soprattutto cosa non è</h2>
+    <p>
+      Questo strumento <strong>non diagnostica niente</strong>. Non può: nessun
+      questionario autosomministrato può stabilire se una persona ha una psicosi
+      o un disturbo bipolare, e chi dice il contrario sta vendendo qualcosa.
+    </p>
+    <p>
+      Non è prudenza, è aritmetica. Le meta-analisi danno all'MDQ una specificità
+      del 70%. Con una prevalenza del 2% nella popolazione generale, su mille
+      persone che fanno il test ne risultano sopra soglia circa trecentodieci,
+      e di queste sedici hanno davvero il disturbo. <strong>Il 95% dei positivi
+      è falso.</strong> Un test che stampasse una diagnosi su quello schermo
+      mentirebbe a quasi tutti quelli che la ricevono.
+    </p>
+    <p>
+      Quindi qui non ci sono etichette. Ci sono <strong>assi continui</strong>,
+      con l'errore di misura disegnato addosso, e delle segnalazioni che dicono
+      «questo varrebbe la pena portarlo a qualcuno che se ne intende». Ogni
+      segnalazione arriva accompagnata dal proprio valore predittivo, cioè da
+      quanto vale davvero.
+    </p>
+    <p class="nota-forte">
+      Non è utilizzabile per idoneità al lavoro, selezione del personale o
+      certificazioni mediche di qualunque genere.
+    </p>
+  </section>
+
+  <section class="scheda">
+    <h2>Dove finiscono le risposte</h2>
+    <p>
+      Nel browser di questo dispositivo, e da nessun'altra parte. Il server
+      consegna i file e basta: non ha nemmeno una rotta per ricevere dati. Puoi
+      staccare la rete a metà test e non cambia niente.
+    </p>
+    <p class="minore">
+      Rovescio della medaglia: se svuoti i dati del browser le risposte
+      spariscono. Per portarle altrove c'è l'esportazione in JSON alla fine.
+    </p>
+  </section>
+
+  <section class="scheda">
+    <h2>Prima di cominciare</h2>
+    <p>
+      Se in questo momento stai male, o hai pensieri di farti del male, la cosa
+      utile non è un questionario. È una telefonata.
+    </p>
+    <ul class="contatti compatti">
+      <li><a class="numero" href="tel:143">143</a> <span class="chi">Telefono Amico</span> <span class="quando">24 ore su 24, anonimo</span></li>
+      <li><a class="numero" href="tel:144">144</a> <span class="chi">Urgenza sanitaria</span> <span class="quando">smista al picchetto psichiatrico</span></li>
+      <li><a class="numero" href="tel:0916114828">091 611 48 28</a> <span class="chi">Picchetto psichiatrico cantonale</span> <span class="quando">18-08 feriali, festivi h24</span></li>
+    </ul>
+    <p class="minore">
+      Questi numeri rispondono in Svizzera: il 143 e il 144 in tutto il paese,
+      il terzo in Ticino. Il <strong>112</strong> funziona in tutta Europa. Se
+      sei altrove, ogni paese ha un suo servizio di ascolto: vale la pena
+      cercarlo adesso, non quando serve.
+    </p>
+  </section>
+
+  <section class="scheda">
+    <h2>I moduli</h2>
+    <div id="mappa-moduli" class="mappa"></div>
+    <p class="minore" id="conteggio-item"></p>
+  </section>
+
+  <section class="scheda impostazioni">
+    <h2>Come vuoi rispondere</h2>
+    <label class="riga-impostazione">
+      <span>Lingua delle domande</span>
+      <select id="lingua">
+        <option value="it">Italiano</option>
+        <option value="en">English (versione originale degli item)</option>
+      </select>
+    </label>
+    <label class="riga-impostazione">
+      <input type="checkbox" id="mostra-originale">
+      <span>Mostra sotto ogni domanda l'originale inglese</span>
+    </label>
+    <p class="minore">
+      Le traduzioni italiane di questa batteria sono nostre e non sono validate.
+      Chi vuole rispondere sulla versione su cui i numeri sono stati calcolati
+      può usare l'inglese.
+    </p>
+    <div class="riga-impostazione">
+      <span>Uso senza rete</span>
+      <button class="secondario" id="prepara-offline">Prepara</button>
+    </div>
+    <p class="minore" id="esito-offline">
+      Scarica i file una volta sola, così il test funziona anche in aereo o in
+      montagna. Le risposte restano comunque solo qui.
+    </p>
+  </section>
+
+  <div class="azioni-principali">
+    <a class="primario bottone" id="comincia" href="test.html">Comincia</a>
+    <a class="secondario bottone" id="riprendi" href="test.html" hidden>Riprendi da dove eri</a>
+    <a class="terziario bottone" id="vedi-profilo" href="profilo.html" hidden>Vedi il profilo</a>
+    <button class="terziario" id="azzera" hidden>Cancella tutto e ricomincia</button>
+  </div>
+
+  <footer class="pie-pagina">
+    <p>
+      Tredici strumenti: BFAS (dominio pubblico), PID-5-BF, PHQ-9 e GAD-7
+      (liberi dal 2010), ASRM, MDQ, PQ-16, ASRS-5, AQ-10, PC-PTSD-5, AUDIT-C,
+      ISI, WHODAS 2.0. Fonti, licenze e provenienza degli item scala per scala
+      nel <a href="https://github.com/Protsky/profilo#readme">README</a>; le verifiche interne in
+      <a href="selftest.html">selftest</a>. Codice: <a href="https://github.com/Protsky/profilo">github.com/Protsky/profilo</a>.
+    </p>
+  </footer>
+
+</main>
+
+<script type="module" src="js/accoglienza.js"></script>
+</body>
+</html>

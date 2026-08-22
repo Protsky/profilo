@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Profilo — le domande</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#141821">
+</head>
+<body class="somministrazione">
+
+<div class="barra-alta">
+  <a class="indietro-casa" href="index.html" aria-label="Torna all'inizio">&larr;</a>
+  <div class="avanzamento" id="avanzamento"><span class="riempimento"></span></div>
+  <span class="avanzamento-testo" id="avanzamento-testo"></span>
+</div>
+
+<main id="app"></main>
+
+<script type="module">
+  import { avvia } from "./js/somministra.js";
+  avvia();
+</script>
+</body>
+</html>

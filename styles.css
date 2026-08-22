@@ -1,0 +1,349 @@
+/* Profilo — foglio di stile unico.
+   Pensato prima per il telefono: si risponde con il pollice, si legge in
+   verticale, i bersagli sono grossi. */
+
+:root {
+  --fondo: #10131a;
+  --fondo-scheda: #181d27;
+  --fondo-scheda-alta: #1f2531;
+  --bordo: #2a3240;
+  --testo: #e6e9ef;
+  --testo-tenue: #9aa4b6;
+  --testo-fioco: #6f7a8d;
+  --accento: #6ea8fe;
+  --accento-scuro: #2f5fa8;
+  --allarme: #ff8f6b;
+  --allarme-fondo: #2a1a16;
+  --buono: #6fcf97;
+  --raggio: 14px;
+  --colonna: 40rem;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --fondo: #f4f6fa;
+    --fondo-scheda: #ffffff;
+    --fondo-scheda-alta: #eef1f7;
+    --bordo: #d7dde8;
+    --testo: #1a1f29;
+    --testo-tenue: #556074;
+    --testo-fioco: #7b8698;
+    --accento: #2f6fd0;
+    --accento-scuro: #d8e5fb;
+    --allarme: #b64316;
+    --allarme-fondo: #fdeee7;
+    --buono: #1f7a4d;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  padding: 0 1rem 4rem;
+  background: var(--fondo);
+  color: var(--testo);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+main { max-width: var(--colonna); margin: 0 auto; }
+
+h1, h2, h3 { line-height: 1.25; font-weight: 650; }
+h1 { font-size: 1.75rem; margin: 1.5rem 0 .5rem; letter-spacing: -.01em; }
+h2 { font-size: 1.1rem; margin: 0 0 .75rem; }
+h3 { font-size: 1rem; margin: 0 0 .35rem; }
+p { margin: 0 0 .85rem; }
+a { color: var(--accento); }
+
+strong { font-weight: 650; }
+
+/* ---------- accoglienza ---------- */
+
+.testata { padding-top: 1.5rem; }
+.occhiello { color: var(--testo-tenue); font-size: 1.02rem; }
+
+.scheda {
+  background: var(--fondo-scheda);
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio);
+  padding: 1.15rem 1.15rem .5rem;
+  margin: 0 0 1rem;
+}
+
+.scheda.cornice { border-left: 3px solid var(--accento); }
+
+.nota-forte {
+  background: var(--allarme-fondo);
+  color: var(--allarme);
+  border-radius: 10px;
+  padding: .7rem .85rem;
+  font-size: .93rem;
+  margin-bottom: .85rem;
+}
+
+.minore { color: var(--testo-tenue); font-size: .9rem; }
+
+.mappa { display: grid; gap: .7rem; margin-bottom: .85rem; grid-template-columns: minmax(0, 1fr); }
+
+.modulo {
+  background: var(--fondo-scheda-alta);
+  border: 1px solid var(--bordo);
+  border-radius: 11px;
+  padding: .8rem .9rem .55rem;
+}
+.modulo.iniziato { border-left: 3px solid var(--accento); }
+.modulo.completo { border-left: 3px solid var(--buono); }
+.modulo-sotto { color: var(--testo-tenue); font-size: .9rem; margin-bottom: .5rem; }
+.modulo-conto { font-size: .85rem; color: var(--testo-fioco); margin-bottom: .2rem; }
+.modulo-strumenti { font-size: .8rem; color: var(--testo-fioco); margin-bottom: .35rem; }
+.modulo-avviso { font-size: .8rem; color: var(--allarme); margin-bottom: .35rem; }
+
+.impostazioni .riga-impostazione {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .5rem 0; font-size: .95rem;
+}
+.impostazioni select {
+  margin-left: auto;
+  background: var(--fondo-scheda-alta);
+  color: var(--testo);
+  border: 1px solid var(--bordo);
+  border-radius: 8px;
+  padding: .45rem .6rem;
+  font: inherit;
+  font-size: .9rem;
+}
+.impostazioni input[type=checkbox] { width: 1.1rem; height: 1.1rem; accent-color: var(--accento); }
+
+.azioni-principali { display: grid; gap: .6rem; margin: 1.5rem 0; }
+
+.pie-pagina { color: var(--testo-fioco); font-size: .82rem; margin-top: 2rem; }
+
+/* ---------- bottoni ---------- */
+
+button, .bottone {
+  font: inherit;
+  border-radius: 11px;
+  padding: .85rem 1rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  display: block;
+  transition: background .12s, border-color .12s, opacity .12s;
+}
+
+.primario { background: var(--accento); color: #0b1220; border-color: var(--accento); font-weight: 640; }
+.primario:hover:not(:disabled) { filter: brightness(1.08); }
+.secondario { background: transparent; color: var(--accento); border-color: var(--bordo); }
+.secondario:hover:not(:disabled) { border-color: var(--accento); }
+.terziario { background: transparent; color: var(--testo-tenue); border-color: transparent; font-size: .92rem; }
+.terziario:hover:not(:disabled) { color: var(--testo); }
+button:disabled { opacity: .45; cursor: default; }
+
+/* ---------- somministrazione ---------- */
+
+.barra-alta {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: .7rem;
+  background: color-mix(in srgb, var(--fondo) 92%, transparent);
+  backdrop-filter: blur(8px);
+  padding: .7rem 0 .6rem;
+  margin: 0 auto; max-width: var(--colonna);
+}
+.indietro-casa { text-decoration: none; font-size: 1.2rem; color: var(--testo-tenue); padding: 0 .3rem; }
+.avanzamento {
+  flex: 1; height: 6px; border-radius: 3px;
+  background: var(--bordo); overflow: hidden;
+}
+.avanzamento .riempimento {
+  display: block; height: 100%; width: var(--quota, 0%);
+  background: var(--accento); transition: width .25s ease;
+}
+.avanzamento-testo { font-size: .78rem; color: var(--testo-fioco); white-space: nowrap; }
+
+.intestazione-blocco { margin: 1rem 0 1.2rem; }
+.modulo-nome {
+  font-size: .78rem; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--testo-fioco); margin-bottom: .3rem;
+}
+.consegna { color: var(--testo-tenue); font-size: .95rem; }
+.avviso-ricostruito {
+  background: var(--allarme-fondo); color: var(--allarme);
+  border-radius: 9px; padding: .6rem .75rem; font-size: .85rem;
+}
+
+.blocco { display: grid; gap: .9rem; grid-template-columns: minmax(0, 1fr); }
+
+.item {
+  background: var(--fondo-scheda);
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio);
+  padding: 1rem 1rem .8rem;
+  min-width: 0;
+}
+.item-testo { font-size: 1.02rem; margin-bottom: .2rem; }
+.item-originale { font-size: .82rem; color: var(--testo-fioco); font-style: italic; margin-bottom: .6rem; }
+
+.opzioni { display: flex; gap: .4rem; margin-top: .7rem; min-width: 0; }
+.opzioni .opzione {
+  flex: 1 1 0; min-width: 0;
+  overflow-wrap: break-word; hyphens: auto;
+  padding: .7rem .25rem;
+  background: var(--fondo-scheda-alta);
+  border: 1px solid var(--bordo);
+  color: var(--testo-tenue);
+  font-size: .78rem; line-height: 1.25;
+  border-radius: 10px;
+}
+.opzioni .opzione:hover { border-color: var(--accento); color: var(--testo); }
+.opzioni .opzione.scelta {
+  background: var(--accento); border-color: var(--accento);
+  color: #0b1220; font-weight: 600;
+}
+.opzioni.opzioni-lunghe { flex-direction: column; }
+.opzioni.opzioni-lunghe .opzione { text-align: left; padding: .7rem .8rem; font-size: .9rem; }
+
+.disagio {
+  margin-top: .85rem; padding-top: .8rem;
+  border-top: 1px dashed var(--bordo);
+}
+.disagio-domanda { font-size: .9rem; color: var(--testo-tenue); margin: 0; }
+
+.piede { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin: 1.4rem 0 0; }
+.piede .terziario { grid-column: 1 / -1; }
+
+/* ---------- schermata di sicurezza ---------- */
+
+body.somministrazione #app.sicurezza { padding-top: 1rem; }
+
+.scheda-sicurezza {
+  background: var(--fondo-scheda);
+  border: 1px solid var(--allarme);
+  border-left: 4px solid var(--allarme);
+  border-radius: var(--raggio);
+  padding: 1.3rem 1.2rem 1rem;
+}
+.scheda-sicurezza h1 { margin-top: 0; font-size: 1.4rem; }
+.scheda-sicurezza .corpo { font-size: 1.03rem; }
+.scheda-sicurezza .chiusura { color: var(--testo-tenue); font-size: .92rem; }
+
+.contatti { list-style: none; padding: 0; margin: 1.1rem 0; display: grid; gap: .65rem; }
+.contatti li {
+  background: var(--fondo-scheda-alta);
+  border: 1px solid var(--bordo);
+  border-radius: 11px;
+  padding: .75rem .85rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: .15rem .8rem;
+  align-items: baseline;
+}
+.contatti .numero {
+  grid-row: 1 / 3;
+  font-size: 1.15rem; font-weight: 680;
+  text-decoration: none; color: var(--accento);
+  white-space: nowrap;
+}
+.contatti .chi { font-weight: 600; font-size: .95rem; }
+.contatti .quando { font-size: .82rem; color: var(--testo-fioco); }
+.contatti .nota { grid-column: 2; font-size: .82rem; color: var(--testo-tenue); }
+.contatti.compatti li { grid-template-columns: auto 1fr auto; }
+.contatti.compatti .numero { grid-row: auto; }
+
+/* ---------- profilo ---------- */
+
+.dimensione {
+  background: var(--fondo-scheda);
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio);
+  padding: .95rem 1rem .8rem;
+  margin-bottom: .8rem;
+}
+.dimensione-titolo { display: flex; align-items: baseline; gap: .6rem; margin-bottom: .5rem; }
+.dimensione-titolo h3 { margin: 0; flex: 1; }
+.dimensione-valore { font-variant-numeric: tabular-nums; color: var(--testo-tenue); font-size: .9rem; }
+.dimensione-nota { font-size: .88rem; color: var(--testo-tenue); margin: .55rem 0 0; }
+.dimensione-azione { font-size: .9rem; margin: .5rem 0 0; }
+
+.banda { position: relative; height: 30px; margin: .3rem 0 .1rem; }
+.norma-mancante { font-size: .78rem; color: var(--testo-fioco); font-style: italic; }
+
+.verdetto-validita {
+  border-radius: var(--raggio); padding: 1rem 1.1rem .8rem; margin-bottom: 1rem;
+  border: 1px solid var(--bordo); background: var(--fondo-scheda);
+}
+.verdetto-validita.cautela { border-color: var(--allarme); }
+.verdetto-validita.non-interpretabile {
+  border-color: var(--allarme); background: var(--allarme-fondo); color: var(--allarme);
+}
+.verdetto-validita ul { margin: .4rem 0 .6rem; padding-left: 1.1rem; font-size: .9rem; }
+
+.conto-predittivo {
+  width: 100%; border-collapse: collapse; font-size: .86rem; margin: .6rem 0;
+}
+.conto-predittivo td { padding: .3rem .2rem; border-bottom: 1px solid var(--bordo); }
+.conto-predittivo td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.conto-predittivo tr:last-child td { border-bottom: none; font-weight: 650; color: var(--accento); }
+
+details { margin: .5rem 0; }
+summary { cursor: pointer; color: var(--accento); font-size: .9rem; padding: .3rem 0; }
+
+.limiti { border-left: 3px solid var(--testo-fioco); }
+.limiti ul { padding-left: 1.1rem; font-size: .93rem; color: var(--testo-tenue); }
+.limiti li { margin-bottom: .4rem; }
+
+/* ---------- selftest ---------- */
+
+.prova { padding: .55rem .7rem; border-radius: 9px; margin-bottom: .35rem; font-size: .9rem; }
+.prova.ok { background: color-mix(in srgb, var(--buono) 14%, transparent); }
+.prova.no { background: var(--allarme-fondo); color: var(--allarme); }
+.prova .nome { font-weight: 600; }
+.prova .dettaglio { display: block; font-size: .82rem; opacity: .85; }
+
+@media (min-width: 34rem) {
+  .opzioni .opzione { font-size: .85rem; }
+  .mappa { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---------- legenda della banda ---------- */
+
+.legenda { font-size: .8rem; color: var(--testo-tenue); margin: .2rem 0 .9rem; }
+.legenda .chiave {
+  display: inline-block; vertical-align: middle;
+  width: 18px; height: 10px; border-radius: 5px; margin-right: .2rem;
+}
+.legenda .chiave.banda { background: var(--accento); opacity: .6; }
+.legenda .chiave.tacca { width: 2px; height: 14px; border-radius: 0; background: var(--testo); }
+.legenda .chiave.soglia { width: 2px; height: 14px; border-radius: 0; background: var(--allarme); }
+
+/* ---------- stampa e salvataggio in PDF ---------- */
+/* Il referto si porta da qualcuno: su carta deve restare leggibile e deve
+   continuare a dire quello che dice a schermo, avvertenze comprese. */
+
+@media print {
+  :root {
+    --fondo: #fff; --fondo-scheda: #fff; --fondo-scheda-alta: #fff;
+    --bordo: #bbb; --testo: #000; --testo-tenue: #333; --testo-fioco: #555;
+    --accento: #234a86; --allarme: #8a3312; --allarme-fondo: #f6ece7;
+  }
+  body { padding: 0; font-size: 11pt; }
+  button, .bottone, .barra-alta, details summary { display: none !important; }
+  details { display: block; }
+  details > *:not(summary) { display: block !important; }
+  .scheda, .dimensione, .verdetto-validita, .scheda-sicurezza {
+    break-inside: avoid; page-break-inside: avoid;
+    border: 1px solid var(--bordo);
+  }
+  .scheda-sicurezza { border: 2px solid var(--allarme); }
+  a { color: inherit; text-decoration: none; }
+  /* L'avvertenza segue il foglio: chi legge una stampata non ha visto la
+     schermata d'ingresso e potrebbe prenderla per un referto clinico. */
+  main::after {
+    content: "Risposte a questionari di autovalutazione. Non è una diagnosi e non è utilizzabile per idoneità, selezione o certificazioni. In Ticino: 143 Telefono Amico (24h) · 144 urgenza sanitaria.";
+    display: block; margin-top: 1.5rem; padding-top: .6rem;
+    border-top: 1px solid var(--bordo);
+    font-size: 9pt; color: #000;
+  }
+}

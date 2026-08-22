@@ -1,0 +1,4 @@
+# Certificato autofirmato: serve solo in locale per provare dal telefono in
+# LAN, e una chiave privata non va su un repository pubblico nemmeno se e'
+# fatta in casa e non protegge niente.
+certs/*.pem
