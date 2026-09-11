@@ -522,6 +522,57 @@ per fidarsi di sé.
 
 ---
 
+## Cosa ha insegnato un video vero
+
+La prima registrazione reale — schermo di un'app di casinò live, 4,6 s — non ha
+prodotto nessuna previsione, e ha trovato tre difetti che nessuna prova
+sintetica aveva visto.
+
+**`polari_a_punto` non accettava array 2-D.** `profilo_angolare` le passa una
+griglia polare, quindi la fase del rotore non aveva **mai** funzionato da capo a
+fondo. C'era una prova su `spostamento_fase` isolata, e passava: una funzione
+verificata solo nei suoi pezzi può essere rotta nel modo più banale possibile.
+
+**La correlazione di fase sbagliava del 5-15% in modo sistematico.** Lo
+sbiancamento dello spettro produce un picco quasi-delta, e la parabola su tre
+campioni lo interpola male — e infittendo i bin *peggiorava*, che è la firma di
+un bias di interpolazione e non di risoluzione. Il rimedio è usare la fase
+dell'**armonica dominante** (k = 37, le caselle), che dà lo spostamento esatto
+modulo un passo casella, con il picco nella finestra a scegliere il passo.
+L'errore sulla velocità del rotore è sceso dal 13,8% allo 0,5%.
+
+**Il profilo angolare si agganciava all'interfaccia, non alla ruota.** Il
+racetrack delle puntate copre il centro dello schermo: è fermo, periodico e molto
+contrastato, quindi la correlazione lo preferiva al rotore e restituiva velocità
+quasi nulla con aria convinta. Ora c'è `copertura_angolare` +
+`spostamento_mascherato`, che correlano solo sul supporto visibile e dichiarano
+la qualità dell'aggancio invece di restituire sempre un numero.
+
+Sul video vero, con la maschera, il rotore misura **50°/s** — verificabile a mano
+contando le caselle che scorrono (24 → 5 → 10 → 23, una casella ogni ~0,17 s,
+cioè 53-59°/s). È l'unica grandezza che quella clip contenesse davvero.
+
+### Cosa serve perché una registrazione sia utilizzabile
+
+| requisito | perché | nel video provato |
+|---|---|---|
+| la boccia **sulla pista** | senza, non c'è niente da misurare | ✗ solo il lancio |
+| la **caduta** ripresa | calibra ω_c; senza, nessuna previsione | ✗ |
+| pista **non coperta** | il tripwire ha bisogno di due fotogrammi consecutivi | ✗ ~45% coperto |
+| **fps veri**, non uno stream ricampionato | i tempi sono il dato | ✗ 24,4 effettivi, arrivi irregolari |
+| **camera ferma** per tutta la clip | la calibrazione vale per un'inquadratura sola | ✗ zoom a 3,9 s |
+| **più spin** sulla stessa ruota | ω_c si calibra, non si deduce | ✗ uno |
+
+Il vincolo sugli fps merita un conto esplicito: alla regola `fps > 74 × giri/s
+del rotore`, un rotore a 0,14 giri/s come quello richiede 11 fps e i 24 bastano.
+Ma la **boccia** a 3-4 giri/s a 24 fps si sposta di 45-60° per fotogramma: con
+metà pista coperta la si vedrebbe in un fotogramma per giro, e il sub-frame — che
+vale un fattore 70 sul budget — ha bisogno dei **due** fotogrammi che circondano
+il passaggio. È il motivo per cui una registrazione di schermo non sostituisce
+una ripresa diretta, anche quando la clip sembra nitida.
+
+---
+
 ## Cosa questo non può vedere
 
 - **Il rimbalzo, che è il termine dominante.** Qui è un parametro che si assume,
@@ -552,7 +603,7 @@ per fidarsi di sé.
 pip install numpy
 pip install opencv-python-headless      # solo per leggere i file video
 
-python -m boccia autotest               # le verifiche (93, tutte verdi)
+python -m boccia autotest               # le verifiche (111 col --pesante)
 python -m boccia autotest --pesante     # include la catena su video sintetico
 
 # provare la catena senza avere video

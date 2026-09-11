@@ -472,13 +472,48 @@ def prove_video():
 
     # Correlazione di fase, compresa la trappola delle 37 caselle.
     n_bin = 720
-    phi = np.linspace(0, 2 * math.pi, n_bin, endpoint=False)
+    DUE_PI = 2 * math.pi
+    phi = np.linspace(0, DUE_PI, n_bin, endpoint=False)
     profilo = np.sign(np.sin(37 * phi)) + 0.3 * np.cos(phi)
     for gradi in (0.5, 3.0, -2.0):
         spostato = np.roll(profilo, int(round(gradi / 360.0 * n_bin)))
         misurato = math.degrees(vd.spostamento_fase(spostato, profilo, massimo_bin=40))
         segna("correlazione di fase, spostamento %+.1f gradi" % gradi,
               vicino(misurato, gradi, 0.3), "misurato %+.2f" % misurato)
+    # Spostamenti NON multipli del bin: e' li' che il raffinamento
+    # sull'armonica batte la parabola, e il confronto sta nella prova perche'
+    # la differenza e' un bias sistematico, non rumore.
+    for gradi in (1.91, 0.43, -2.37):
+        continuo = np.interp((phi - math.radians(gradi)) % DUE_PI, phi, profilo,
+                             period=DUE_PI)
+        fine = math.degrees(vd.spostamento_fase(continuo, profilo, massimo_bin=40))
+        parabola = math.degrees(vd.spostamento_fase(continuo, profilo, massimo_bin=40,
+                                                    armonica=False))
+        segna("armonica dominante batte la parabola a %+.2f gradi" % gradi,
+              abs(fine - gradi) < 0.02 and abs(fine - gradi) < abs(parabola - gradi),
+              "armonica %+.3f, parabola %+.3f" % (fine, parabola))
+    # Riprese occluse: il supporto valido e' un pezzo di circonferenza, e le
+    # due funzioni devono dare lo stesso numero, segno compreso.
+    coperti = (phi < math.radians(100)) | (phi > math.radians(260))
+    for gradi in (1.91, -2.4, 0.5):
+        continuo = np.interp((phi - math.radians(gradi)) % DUE_PI, phi, profilo,
+                             period=DUE_PI)
+        mascherato, qualita = vd.spostamento_mascherato(continuo, profilo, coperti, 14)
+        intero = vd.spostamento_fase(continuo, profilo, massimo_bin=14)
+        segna("correlazione mascherata a %+.2f gradi (supporto %.0f%%)"
+              % (gradi, 100 * coperti.mean()),
+              vicino(math.degrees(mascherato), gradi, 0.1) and qualita > 0.9,
+              "mascherata %+.3f, intera %+.3f, corr %.3f"
+              % (math.degrees(mascherato), math.degrees(intero), qualita))
+    # Un profilo senza struttura non deve produrre un numero convincente: la
+    # funzione deve restituire NaN e correlazione nulla, cosi' `fase_rotore` lo
+    # scarta invece di mediarlo con gli altri.
+    piatto = np.ones(n_bin)
+    sp, q = vd.spostamento_mascherato(piatto, piatto, coperti, 14)
+    segna("su un profilo senza struttura la correlazione si dichiara nulla",
+          (not math.isfinite(sp)) and q < 0.4, "spostamento %s, correlazione %.2f"
+          % (sp, q))
+
     # LA TRAPPOLA DELLE 37 CASELLE. Uno spostamento di 12 gradi supera il mezzo
     # passo casella (4,87): la correlazione trova il picco piu' vicino a zero,
     # che e' l'alias 12 - 9,73 = 2,27. Non e' rumore, e' deterministico, e sul
@@ -506,6 +541,49 @@ def prove_video():
     segna("fps_minimi_rotore(0.8 giri/s) ~ 59",
           vicino(vd.fps_minimi_rotore(0.8, margine=2.0), 59.2, 0.5),
           "%.1f fps" % vd.fps_minimi_rotore(0.8, margine=2.0))
+
+
+def prove_rotore():
+    """La fase del rotore, da capo a fondo su fotogrammi sintetici.
+
+    Esisteva una prova su `spostamento_fase` isolata, e passava; ma
+    `profilo_angolare` non era mai stato eseguito, e aveva un bug che lo
+    rendeva impossibile da chiamare. Una funzione provata solo nei suoi pezzi
+    puo' essere rotta nel modo piu' banale possibile.
+    """
+    print("rotore (catena completa)")
+    rng = np.random.default_rng(11)
+    spin = sn.genera_spin(rng, omega_iniziale=16.0, omega_c=9.0, jitter_s=0.0)
+    L, A = 640, 360
+    omega_vera = -2.0  # rad/s, cioe' 0.32 giri/s: dentro il limite a 60 fps
+    H = sn.omografia_camera(distanza=2.0, inclinazione_gradi=35.0, azimut_gradi=10.0,
+                            focale_px=300.0, larghezza=L, altezza=A)
+    fotogrammi = list(sn.fotogrammi_sintetici(spin, fps=60.0, H=H, larghezza=L, altezza=A,
+                                              omega_rotore=omega_vera))
+    cal = vd.Calibrazione.da_ellisse(vd.adatta_ellisse(
+        vd.punti_traiettoria(fotogrammi, vd.sfondo_mediano(fotogrammi))))
+
+    profilo = vd.profilo_angolare(fotogrammi[0], cal, n_bin=720)
+    segna("profilo_angolare produce un profilo della lunghezza giusta",
+          profilo.shape == (720,) and np.all(np.isfinite(profilo)))
+    segna("il profilo vede le caselle del rotore",
+          float(profilo.std()) > 1.0, "deviazione %.1f livelli" % profilo.std())
+
+    t, fasi, omega, avvisi = vd.fase_rotore(fotogrammi[:80], cal, 60.0,
+                                            n_caselle=37)
+    segna("la velocita' del rotore e' quella messa nel generatore",
+          vicino(omega, omega_vera, 0.25),
+          "%.3f contro %.3f rad/s" % (omega, omega_vera))
+    segna("nessun avviso di aliasing a 60 fps con rotore lento", not avvisi,
+          "; ".join(avvisi) if avvisi else "")
+
+    # Sotto-campionando a 15 fps lo stesso rotore deve risultare aliasato, e la
+    # funzione deve DIRLO invece di restituire un numero sbagliato in silenzio.
+    veloci = list(sn.fotogrammi_sintetici(spin, fps=60.0, H=H, larghezza=L, altezza=A,
+                                          omega_rotore=-9.0))[:80:1]
+    _, _, om2, avvisi2 = vd.fase_rotore(veloci[:60], cal, 12.0, n_caselle=37)
+    segna("con pochi fps e rotore veloce l'aliasing viene segnalato",
+          bool(avvisi2), "; ".join(avvisi2)[:80] if avvisi2 else "nessun avviso")
 
 
 def prove_video_pesanti():
@@ -616,6 +694,7 @@ def esegui(pesante=False):
     prove_video()
     prove_dati()
     if pesante:
+        prove_rotore()
         prove_video_pesanti()
     else:
         print("video (catena completa): saltata, si attiva con --pesante")

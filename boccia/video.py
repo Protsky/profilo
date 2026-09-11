@@ -274,10 +274,21 @@ class Calibrazione:
         return float(math.hypot(X, Y)), float(math.atan2(Y, X))
 
     def polari_a_punto(self, raggio, angolo):
-        X, Y = raggio * np.cos(angolo), raggio * np.sin(angolo)
-        uno = np.ones_like(np.asarray(X, dtype=float))
-        v = self.H @ np.stack([np.asarray(X, dtype=float), np.asarray(Y, dtype=float), uno])
-        return v[0] / v[2], v[1] / v[2]
+        """Da (raggio, angolo) nel piano ruota a pixel. Accetta scalari o array
+        di qualunque forma: `profilo_angolare` passa griglie 2-D, e la prima
+        versione le appiattiva male facendo esplodere il prodotto. Non se n'era
+        accorto nessuno perche' la fase del rotore non era provata da capo a
+        fondo - lo e' adesso."""
+        R = np.asarray(raggio, dtype=float)
+        A = np.asarray(angolo, dtype=float)
+        forma = np.broadcast_shapes(R.shape, A.shape)
+        X = np.broadcast_to(R * np.cos(A), forma).ravel()
+        Y = np.broadcast_to(R * np.sin(A), forma).ravel()
+        v = self.H @ np.stack([X, Y, np.ones_like(X)])
+        x, y = v[0] / v[2], v[1] / v[2]
+        if forma == ():
+            return float(x[0]), float(y[0])
+        return x.reshape(forma), y.reshape(forma)
 
     def mappa(self, larghezza, altezza):
         """Raggio e angolo di OGNI pixel. Si calcola una volta e si riusa:
@@ -731,6 +742,85 @@ def istante_caduta(t, raggio, calo=0.04, conferme=4, k_mad=6.0):
 
 # ---------------------------------------------------------------- il rotore
 
+def copertura_angolare(calibrazione, larghezza, altezza, raggio_interno=0.30,
+                       raggio_esterno=0.70, n_bin=720, n_radiale=12,
+                       maschera_pixel=None):
+    """Quanta parte di ogni bin angolare e' davvero visibile.
+
+    Serve per le riprese occluse, che nelle app di casino' online sono la
+    regola e non l'eccezione: il racetrack delle puntate copre il centro della
+    ruota e lascia scoperti due spicchi. Su un video cosi' la correlazione di
+    fase sul profilo intero non aggancia il rotore, aggancia l'OVERLAY - che e'
+    fermo, periodico e molto contrastato - e restituisce velocita' prossima a
+    zero con aria convinta.
+
+    `maschera_pixel` e' una matrice booleana della dimensione dell'immagine:
+    True dove il pixel e' utilizzabile. Se manca si considera visibile tutto
+    quello che cade dentro l'inquadratura.
+
+    Ritorna un vettore di `n_bin` frazioni fra 0 e 1.
+    """
+    angoli = np.linspace(0.0, DUE_PI, n_bin, endpoint=False)
+    raggi = np.linspace(raggio_interno, raggio_esterno, n_radiale)
+    A, R = np.meshgrid(angoli, raggi)
+    x, y = calibrazione.polari_a_punto(R, A)
+    dentro = (x >= 0) & (x < larghezza - 1) & (y >= 0) & (y < altezza - 1)
+    if maschera_pixel is not None:
+        xi = np.clip(np.round(x).astype(int), 0, larghezza - 1)
+        yi = np.clip(np.round(y).astype(int), 0, altezza - 1)
+        dentro &= np.asarray(maschera_pixel, dtype=bool)[yi, xi]
+    return dentro.mean(axis=0)
+
+
+def spostamento_mascherato(p1, p2, buoni, massimo_bin, centro=0.0):
+    """Spostamento fra due profili quando una parte dell'angolo non si vede.
+
+    Correlazione incrociata normalizzata calcolata SOLO sul supporto valido,
+    cercata a spostamenti interi dentro la finestra e poi raffinata con una
+    parabola sulla curva di correlazione. Niente FFT: con dei buchi la FFT
+    considererebbe gli zeri come segnale, ed e' proprio da li' che nasce
+    l'aggancio sull'overlay.
+
+    Ritorna (spostamento in radianti, correlazione al picco), con lo stesso
+    segno e la stessa convenzione di `spostamento_fase` - che non e' gratis:
+    qui si cerca di quanto ARRETRARE p1 per sovrapporlo a p2, che e' l'opposto,
+    e senza il segno cambiato le due funzioni darebbero rotori che girano al
+    contrario a seconda di quale ramo del codice si attiva.
+
+    Una correlazione bassa - sotto 0,4 - vuol dire che l'aggancio non c'e'
+    stato, e il numero va buttato invece che mediato con gli altri.
+    """
+    a = np.asarray(p1, dtype=float)
+    b = np.asarray(p2, dtype=float)
+    buoni = np.asarray(buoni, dtype=bool)
+    n = a.size
+    centro_bin = int(round(centro * n / DUE_PI))
+    spostamenti = np.arange(centro_bin - massimo_bin, centro_bin + massimo_bin + 1)
+    correlazioni = np.full(spostamenti.size, -2.0)
+    for i, s in enumerate(spostamenti):
+        m = buoni & np.roll(buoni, s)
+        if m.sum() < max(32, n // 20):
+            continue
+        u = np.roll(a, s)[m]
+        v = b[m]
+        u = u - u.mean()
+        v = v - v.mean()
+        norma = np.linalg.norm(u) * np.linalg.norm(v)
+        if norma <= 0:
+            continue
+        correlazioni[i] = float(u @ v / norma)
+    j = int(np.argmax(correlazioni))
+    if correlazioni[j] <= -1.5:
+        return float("nan"), 0.0
+    delta = 0.0
+    if 0 < j < spostamenti.size - 1:
+        y0, y1, y2 = correlazioni[j - 1], correlazioni[j], correlazioni[j + 1]
+        den = y0 - 2 * y1 + y2
+        if abs(den) > 1e-12:
+            delta = 0.5 * (y0 - y2) / den
+    return -(spostamenti[j] + delta) * DUE_PI / n, float(correlazioni[j])
+
+
 def profilo_angolare(immagine, calibrazione, raggio_interno=0.30, raggio_esterno=0.70,
                      n_bin=720, n_radiale=12):
     """L'anello del rotore srotolato in un profilo di intensita' p(angolo).
@@ -755,7 +845,7 @@ def profilo_angolare(immagine, calibrazione, raggio_interno=0.30, raggio_esterno
     return valori.mean(axis=0)
 
 
-def spostamento_fase(p1, p2, massimo_bin=None, centro=0.0):
+def spostamento_fase(p1, p2, massimo_bin=None, centro=0.0, armonica=True):
     """Correlazione di fase 1-D fra due profili, con picco sub-bin.
 
     LA TRAPPOLA DELLE 37 CASELLE, e il vincolo su fps che ne esce.
@@ -808,7 +898,37 @@ def spostamento_fase(p1, p2, massimo_bin=None, centro=0.0):
     spostamento = indice + delta
     if spostamento > n / 2:
         spostamento -= n
-    return spostamento * DUE_PI / n
+    grezzo = spostamento * DUE_PI / n
+
+    if not armonica:
+        return grezzo
+
+    # RAFFINAMENTO SULL'ARMONICA DOMINANTE, e perche' serve.
+    #
+    # La correlazione di fase sbianca lo spettro, quindi il picco che ne esce e'
+    # quasi una delta: interpolarlo con una parabola su tre campioni e' una
+    # stima cattiva, e cattiva in modo SISTEMATICO, non rumoroso. Misurato sul
+    # video sintetico: la velocita' del rotore usciva sbagliata del 5% con 720
+    # bin, e infittendo i bin peggiorava invece di migliorare - che e' la firma
+    # di un bias di interpolazione, non di risoluzione.
+    #
+    # Il rotore pero' ha una firma spettrale fortissima su una sola armonica,
+    # quella delle caselle (k = 37). La fase di quell'armonica da' lo
+    # spostamento in modo esatto, ma solo MODULO 2*pi/k - cioe' modulo un passo
+    # casella, che e' la stessa ambiguita' di prima. Si usano quindi le due
+    # cose insieme: il picco nella finestra sceglie il passo, l'armonica da' la
+    # posizione dentro il passo. Errore che ne esce: qualche millesimo di grado
+    # invece di qualche centesimo.
+    ampiezze = np.abs(B)
+    alto = max(3, ampiezze.size // 4)
+    if alto <= 2:
+        return grezzo
+    k = int(np.argmax(ampiezze[2:alto]) + 2)
+    if ampiezze[k] < 3.0 * float(np.median(ampiezze[2:alto])):
+        return grezzo  # nessuna armonica davvero dominante: meglio il grezzo
+    fase = float(np.angle(incrociato[k]))
+    m = round((-grezzo * k - fase) / DUE_PI)
+    return -(fase + DUE_PI * m) / k
 
 
 def fps_minimi_rotore(giri_al_secondo, n_caselle=37, margine=2.0):
@@ -825,7 +945,8 @@ def fps_minimi_rotore(giri_al_secondo, n_caselle=37, margine=2.0):
 
 
 def fase_rotore(fotogrammi, calibrazione, fps, n_bin=720, massimo_gradi=None,
-                n_caselle=37, giri_al_secondo_attesi=None, **kw):
+                n_caselle=37, giri_al_secondo_attesi=None, maschera_pixel=None,
+                correlazione_minima=0.4, **kw):
     """Angolo cumulato del rotore, fotogramma per fotogramma.
 
     Non serve a prevedere la caduta - il settore di caduta vive nel sistema
@@ -851,17 +972,36 @@ def fase_rotore(fotogrammi, calibrazione, fps, n_bin=720, massimo_gradi=None,
     massimo_bin = int(math.ceil(massimo_gradi / 360.0 * n_bin))
     atteso = (DUE_PI * giri_al_secondo_attesi / fps
               if giri_al_secondo_attesi is not None else 0.0)
-    t, fasi, passi = [], [], []
+
+    buoni = None
+    if maschera_pixel is not None:
+        prima = np.asarray(next(iter(fotogrammi)))
+        copertura = copertura_angolare(calibrazione, prima.shape[1], prima.shape[0],
+                                       n_bin=n_bin, maschera_pixel=maschera_pixel,
+                                       **{k: v for k, v in kw.items()
+                                          if k in ("raggio_interno", "raggio_esterno",
+                                                   "n_radiale")})
+        buoni = copertura > 0.9
+
+    t, fasi, passi, scartati = [], [], [], 0
     precedente = None
     cumulato = 0.0
     for i, f in enumerate(fotogrammi):
         p = profilo_angolare(f, calibrazione, n_bin=n_bin, **kw)
         if precedente is not None:
-            passo = spostamento_fase(p, precedente, massimo_bin=massimo_bin,
-                                     centro=atteso)
-            cumulato += passo
-            passi.append(passo)
-            atteso = passo  # la finestra insegue
+            if buoni is None:
+                passo = spostamento_fase(p, precedente, massimo_bin=massimo_bin,
+                                         centro=atteso)
+                qualita = 1.0
+            else:
+                passo, qualita = spostamento_mascherato(p, precedente, buoni,
+                                                        massimo_bin, centro=atteso)
+            if math.isfinite(passo) and qualita >= correlazione_minima:
+                cumulato += passo
+                passi.append(passo)
+                atteso = passo  # la finestra insegue
+            else:
+                scartati += 1
         precedente = p
         t.append(i / fps)
         fasi.append(cumulato)
@@ -872,6 +1012,12 @@ def fase_rotore(fotogrammi, calibrazione, fps, n_bin=720, massimo_gradi=None,
     omega = float(np.polyfit(t, fasi, 1)[0])
 
     avvisi = []
+    if buoni is not None:
+        avvisi.append("ripresa occlusa: solo il %.0f%% della circonferenza e' "
+                      "visibile" % (100 * buoni.mean()))
+    if scartati:
+        avvisi.append("%d passi su %d scartati per correlazione bassa"
+                      % (scartati, scartati + len(passi)))
     mezzo_passo = math.pi / n_caselle
     tipico = float(np.median(np.abs(passi))) if passi else 0.0
     if tipico > mezzo_passo:
@@ -957,12 +1103,18 @@ def _angolo_a(t, angolo, istante):
 
 
 def estrai(fotogrammi, fps, calibrazione=None, angolo_tripwire=0.0,
-           raggio_pista=None, tolleranza_pista=0.30, con_rotore=False):
+           raggio_pista=None, tolleranza_pista=0.30, con_rotore=False,
+           maschera_pixel=None):
     """Dal video ai numeri: un dizionario pronto da salvare in JSON.
 
     `fotogrammi` puo' essere una SorgenteVideo o una qualunque sequenza di
     array. Se e' un generatore viene materializzato: servono tre passate (fondo,
     boccia, eventualmente rotore).
+
+    `maschera_pixel` marca i pixel utilizzabili (True) ed e' quello che serve
+    sulle riprese di app, dove un'interfaccia copre parte della ruota: senza,
+    la fase del rotore si aggancia all'interfaccia, che e' ferma e periodica, e
+    restituisce una velocita' quasi nulla con tutta l'aria di essere giusta.
 
     `raggio_pista` lasciato a None si MISURA invece di darlo per scontato. Con
     la calibrazione da traiettoria vale 1 per costruzione, ma con una
@@ -1030,7 +1182,8 @@ def estrai(fotogrammi, fps, calibrazione=None, angolo_tripwire=0.0,
         esito["avvisi"].append("caduta non rilevata: %s" % errore)
 
     if con_rotore:
-        _, fasi, omega_rotore, avvisi_rotore = fase_rotore(fotogrammi, calibrazione, fps)
+        _, fasi, omega_rotore, avvisi_rotore = fase_rotore(
+            fotogrammi, calibrazione, fps, maschera_pixel=maschera_pixel)
         esito["omega_rotore"] = omega_rotore
         esito["fase_rotore"] = fasi.tolist()
         esito["avvisi"].extend(avvisi_rotore)
