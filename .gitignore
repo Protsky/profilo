@@ -2,3 +2,8 @@
 # LAN, e una chiave privata non va su un repository pubblico nemmeno se e'
 # fatta in casa e non protegge niente.
 certs/*.pem
+
+# Bytecode di Python: il sottoprogetto boccia/ e' un pacchetto vero, e
+# __pycache__ si rigenera da solo a ogni esecuzione.
+__pycache__/
+*.pyc

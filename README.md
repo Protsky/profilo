@@ -417,6 +417,16 @@ Sta scritto anche in fondo al profilo, perché è la parte che conta:
 
 ---
 
+## Altro in questo repository
+
+`boccia/` non c'entra niente con i questionari: è un pacchetto Python a sé, sul
+settore di caduta della boccia della roulette a partire da un video — modello
+fisico, estrazione dai fotogrammi, prova di uniformità sui diamanti. Condivide
+però l'idea di fondo, che è misurare l'incertezza invece di nasconderla: vedi
+[`boccia/README.md`](boccia/README.md).
+
+---
+
 ## Fonti
 
 - DeYoung CG, Quilty LC, Peterson JB (2007). *Between facets and domains: 10 aspects of the Big Five.* J Pers Soc Psychol 93(5), 880-896 — [Table 4, chiave del BFAS](https://www.jordanbpeterson.com/docs/230/2014/15DeYoung.pdf)
