@@ -171,6 +171,68 @@ def comando_budget(args):
         print("validazione incrociata non riuscita: %s" % errore)
 
 
+def comando_finestra(args):
+    registrazioni, meta = dt.carica(args.sessione)
+    utili = [r for r in registrazioni if r.utilizzabile]
+    if len(utili) < 40:
+        raise SystemExit("servono almeno una quarantina di spin con la caduta "
+                         "misurata, ce ne sono %d" % len(utili))
+    M = _modello(args.modello)
+    righe = bg.finestra_di_scommessa(utili, n_giri=args.giri, modello=M,
+                                     n_settori=args.diamanti, seme=args.seme)
+    if not righe:
+        raise SystemExit("nessun anticipo valutabile: spin troppo corti?")
+    print("ruota: %s  (%d spin)" % (meta.get("ruota") or "senza nome", len(utili)))
+    print()
+    print("ANTICIPO = fra l'ultimo dato utilizzabile e l'uscita dalla pista.")
+    print("Comprende la chiusura anticipata delle scommesse E il tempo per")
+    print("calcolare e piazzare: un secondo speso a puntare pesa come un")
+    print("secondo di chiusura anticipata.")
+    print()
+    bg.stampa_finestra(righe)
+    print()
+    limite = bg.anticipo_massimo(righe, margine=args.margine)
+    if limite is None:
+        print("NESSUN anticipo passa la soglia del %.0f%% sopra il caso." % (100 * (args.margine - 1)))
+        print("Su questa ruota, con questa estrazione, non c'e' finestra utile:")
+        print("non e' una questione di chiudere piu' tardi.")
+        return
+    riga = max((r for r in righe if r["anticipo"] <= limite), key=lambda r: r["anticipo"])
+    print("ANTICIPO MASSIMO UTILE: %.1f s, cioe' circa %.1f giri di boccia."
+          % (limite, riga["giri_residui"]))
+    print("A quell'anticipo: %.1f%% sul diamante (caso %.1f%%), %.1f%% entro uno (caso %.1f%%)."
+          % (100 * riga["p_diamante"], 100 * riga["caso_diamante"],
+             100 * riga["p_entro_uno"], 100 * riga["caso_entro_uno"]))
+    print()
+    residuo = limite - args.posa
+    if residuo <= 0:
+        print("Tradotto in finestra di scommessa: NON CI SI STA. Con %.1f s per"
+              % args.posa)
+        print("calcolare e piazzare hai gia' consumato tutto l'anticipo utile, che")
+        print("qui vale %.1f s. Le scommesse dovrebbero chiudere DOPO che la boccia" % limite)
+        print("e' caduta, il che non succede.")
+        print()
+        print("Le sole vie d'uscita sono ridurre il tempo di posa - una puntata")
+        print("sola su un settore invece di fiches sparse, o un'interfaccia che")
+        print("non richieda le mani - oppure trovare una ruota che ripeta meglio,")
+        print("che allunga l'anticipo utile. Chiudere piu' tardi non dipende da te.")
+    else:
+        durata = float(np.median([r.t_caduta for r in utili]))
+        print("Tradotto in finestra di scommessa: se ci metti %.1f s a piazzare, le"
+              % args.posa)
+        print("puntate devono restare aperte fino ad almeno %.1f s prima che la" % residuo)
+        print("boccia lasci la pista. Su uno spin da %.1f s - la mediana di questa"
+              % durata)
+        print("sessione - vuol dire tenerle aperte per il %.0f%% del volo."
+              % (100 * (1 - residuo / durata)))
+        print()
+        print("E siccome la durata dello spin varia (qui da %.1f a %.1f s), una"
+              % (min(r.t_caduta for r in utili), max(r.t_caduta for r in utili)))
+        print("chiusura a orologio fisso da' anticipi diversi a ogni spin: una")
+        print("parte sara' dentro la finestra e una parte no. Non e' un tavolo")
+        print("dove si gioca ogni colpo, e' un tavolo dove si aspetta.")
+
+
 def comando_numeri(args):
     registrazioni, meta = dt.carica(args.sessione)
     d = dt.diamanti(registrazioni, args.diamanti, math.radians(args.offset))
@@ -224,6 +286,7 @@ def comando_stima(args):
         print("(per un numero onesto, calibra su una sessione e misura su un'altra)")
     print()
 
+    troppo_presto = 0
     for r in registrazioni:
         finestra = r.finestra(args.giri)
         if finestra.size < 3:
@@ -243,7 +306,17 @@ def comando_stima(args):
         if math.isfinite(r.t_caduta):
             riga += "  | vera %.3f s, errore %+.0f ms" % (
                 r.t_caduta, 1000 * (pr.t_caduta - r.t_caduta))
+        if pr.giri_residui > bg.ANTICIPO_UTILE_GIRI:
+            riga += "  [TROPPO PRESTO: %.1f giri residui]" % pr.giri_residui
+            troppo_presto += 1
         print(riga)
+    if troppo_presto:
+        print()
+        print("%d previsioni sono state fatte con piu' di %.1f giri di boccia davanti."
+              % (troppo_presto, bg.ANTICIPO_UTILE_GIRI))
+        print("A quell'anticipo la previsione vale il caso, misurato: vedi")
+        print("`python -m boccia finestra`. Non e' una barra d'errore larga, e'")
+        print("assenza di informazione, ed e' diverso.")
 
 
 def comando_autotest(args):
@@ -302,6 +375,18 @@ def principale(argomenti=None):
     b.add_argument("--modello", default="lineare")
     b.add_argument("--seme", type=int, default=0)
     b.set_defaults(funzione=comando_budget)
+
+    w = sub.add_parser("finestra", help="quanto deve restare aperta la scommessa")
+    w.add_argument("sessione")
+    w.add_argument("--giri", type=int, default=5)
+    w.add_argument("--diamanti", type=int, default=8)
+    w.add_argument("--modello", default="lineare")
+    w.add_argument("--margine", type=float, default=1.3,
+                   help="quanto deve battere il caso per contare (1.3 = +30%%)")
+    w.add_argument("--posa", type=float, default=1.0,
+                   help="secondi per calcolare e piazzare la puntata")
+    w.add_argument("--seme", type=int, default=0)
+    w.set_defaults(funzione=comando_finestra)
 
     n = sub.add_parser("numeri", help="dal diamante al numero: cosa resta del vantaggio")
     n.add_argument("sessione")

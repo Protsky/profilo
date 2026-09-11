@@ -84,8 +84,15 @@ già deciso.
    e un chi-quadro. Dice se su quella ruota c'è qualcosa da trovare.
 2. **Budget** (`python -m boccia budget`). Dice quanto stretto può essere il
    settore, al massimo, su quella ruota.
-3. **Stima** (`python -m boccia stima`). La previsione vera e propria: la parte
+3. **Finestra** (`python -m boccia finestra`). Dice quanto presto sei costretto
+   a impegnarti, e se a quell'anticipo resta qualcosa. È il vincolo che non
+   dipende da te: [vedi sotto](#quanto-deve-restare-aperta-la-scommessa).
+4. **Stima** (`python -m boccia stima`). La previsione vera e propria: la parte
    che *sembra* il progetto, ed è l'ultima a servire.
+
+I primi tre passi possono tutti concludersi con «no», e ognuno costa meno del
+successivo. Il quarto è l'unico che assomiglia a un progetto di software, ed è
+quello che ha meno probabilità di cambiare l'esito.
 
 ### La prova di uniformità
 
@@ -365,6 +372,98 @@ buttare.
 
 ---
 
+## Quanto deve restare aperta la scommessa
+
+C'è un secondo vincolo, indipendente dal primo e altrettanto duro: **quanto
+presto sei costretto a impegnarti**. La variabile che conta non è «quanto prima
+chiudono le puntate» né «quanto ci metti a piazzare», ma la loro somma:
+
+    anticipo = (chiusura anticipata delle scommesse) + (tempo per calcolare e piazzare)
+
+cioè il tempo fra **l'ultimo dato utilizzabile** e l'uscita della boccia dalla
+pista. Un secondo speso a piazzare le fiches pesa esattamente quanto un secondo
+di chiusura anticipata — e questo si misura, non si assume.
+
+Misurato su spin simulati (ruota che ripete all'1,7%, estrazione buona, ω_c
+calibrata su metà degli spin *per quell'anticipo* e misurata sull'altra metà):
+
+| anticipo | giri di boccia | σ_t | settore | P(diamante) | P(entro uno) |
+|---:|---:|---:|---:|---:|---:|
+| 0,5 s | 1,2 | 102 ms | 2,3 | **36,2%** | **80,9%** |
+| 1,0 s | 2,1 | 112 ms | 2,5 | 28,0% | 76,0% |
+| 1,5 s | 2,9 | 122 ms | 2,7 | 26,4% | 70,2% |
+| 2,0 s | 3,9 | 151 ms | 3,3 | 18,2% | 50,9% |
+| 2,5 s | 4,8 | 195 ms | 4,2 | 14,7% | 42,0% |
+| 3,0 s | 5,9 | 236 ms | 5,0 | 12,0% | 38,7% |
+| 4,0 s | 8,2 | 361 ms | 7,2 | 13,1% | 37,8% |
+| 5,0 s | 10,9 | 519 ms | 9,6 | 13,8% | 38,9% |
+
+Caso: 12,5% il diamante esatto, 37,5% entro uno. Si legge una soglia netta:
+
+> **Il valore di riferimento: l'anticipo massimo utile è ~2 secondi, cioè circa
+> 4 giri di boccia. Sotto i 2 secondi la previsione diventa buona; oltre i 3
+> l'informazione è finita** — e non «peggiorata», proprio finita: la riga a 5
+> secondi è indistinguibile dal caso, e la σ di 519 ms su un settore da 87
+> significa che l'angolo previsto è uniforme sulla ruota.
+
+Notare che oltre i 3 secondi **la qualità della ruota non conta più**: su una
+ruota tipica (2,8%) la riga a 0,5 s dà 25,8% e quella a 3 s dà 12,4%, cioè lo
+stesso esito della ruota buona. Vicino alla caduta domina σ_ωc; lontano domina
+l'estrapolazione, e quella è uguale per tutti.
+
+### Tradotto in finestra di scommessa
+
+Se ci metti **1 secondo** a calcolare e piazzare, l'ultimo dato utile è 1
+secondo prima della chiusura, quindi le puntate devono restare aperte fino a
+**circa 1 secondo prima che la boccia lasci la pista**. Su uno spin da 8,7 s
+sono gli ultimi **~90% del volo**: chiudere a metà spin rende la previsione
+esattamente inutile.
+
+Il tempo di posa entra in pieno nel bilancio, e se ne mangia una fetta enorme:
+
+| tempo per piazzare | P(diamante), impegno a 1 giro residuo |
+|---:|---:|
+| 0,5 s | 27,8% |
+| 1,0 s | 23,8% |
+| 2,0 s | 13,2% |
+| 3,0 s | 14,0% |
+
+**A 2 secondi di posa è già tutto finito**, qualunque sia la ruota. Il che
+sposta la priorità in un posto inatteso: ridurre il gesto — una puntata sola su
+un settore invece di fiches sparse su numeri singoli — vale più che migliorare
+il modello.
+
+### La durata dello spin varia, quindi non si gioca ogni colpo
+
+Il croupier chiude a orologio, non a giri residui, e la durata dello spin varia
+parecchio (nella simulazione: mediana 8,7 s, da 6,6 a 12,4). La stessa chiusura
+dà quindi anticipi diversi a ogni colpo:
+
+| chiusura dal lancio | spin con anticipo ≤ 2 s | ≤ 3 s | già caduta |
+|---:|---:|---:|---:|
+| 6,0 s | 2% | 26% | 0% |
+| 7,0 s | 24% | 56% | 2% |
+| 7,5 s | **32%** | 62% | 11% |
+| 8,0 s | 32% | 57% | 26% |
+| 8,5 s | 30% | 46% | 43% |
+
+Nel migliore dei casi **circa un terzo degli spin** cade dentro la finestra
+utile; spostare la chiusura più avanti non aiuta, perché cresce la quota di
+spin in cui la boccia è già caduta. Non è un tavolo dove si gioca ogni colpo: è
+un tavolo dove si aspetta il colpo giusto, e la selezione va decisa *prima* di
+vedere il risultato, se no si torna a misurarsi addosso.
+
+```
+python -m boccia finestra sessione.json --posa 1.0
+```
+
+Dal vivo l'istante di caduta non si conosce, quindi il cancello non è
+l'anticipo ma **i giri residui che il modello stesso stima**: `stima` segnala
+`[TROPPO PRESTO]` sopra i 3,5 giri. È lo stesso fit a dire se è ancora presto
+per fidarsi di sé.
+
+---
+
 ## Cosa questo non può vedere
 
 - **Il rimbalzo, che è il termine dominante.** Qui è un parametro che si assume,
@@ -382,6 +481,10 @@ buttare.
   a sapere l'ordine di grandezza; il numero da usare è quello empirico.
 - **Se la ruota è in bolla.** Allora non c'è niente da trovare, e nessuna delle
   cose qui sopra cambia quel fatto.
+- **Quando chiude il croupier.** La finestra di scommessa è l'unico vincolo del
+  progetto su cui non si può lavorare: o è abbastanza lunga o non lo è. Tutto
+  quello che si può fare da questo lato è ridurre il proprio tempo di posa, che
+  entra nel bilancio allo stesso titolo.
 
 ---
 
@@ -391,7 +494,7 @@ buttare.
 pip install numpy
 pip install opencv-python-headless      # solo per leggere i file video
 
-python -m boccia autotest               # le verifiche (81, tutte verdi)
+python -m boccia autotest               # le verifiche (88, tutte verdi)
 python -m boccia autotest --pesante     # include la catena su video sintetico
 
 # provare la catena senza avere video
@@ -403,6 +506,7 @@ python -m boccia estrai video/*.mp4 --uscita sessione.json --tripwire 0
 # nell'ordine giusto
 python -m boccia uniformita sessione.json
 python -m boccia budget sessione.json
+python -m boccia finestra sessione.json --posa 1.0
 python -m boccia numeri sessione.json --rimbalzo 7
 python -m boccia stima sessione.json --giri 4
 ```
@@ -416,7 +520,7 @@ numero non torna, e si tengono per mesi mentre il codice cambia.
 |---|---|
 | `statistica.py` | chi-quadro, chi-quadro non centrale, binomiale, Wilson — senza scipy |
 | `modello.py` | i tre modelli di decadimento, Levenberg-Marquardt, ω_c, previsione |
-| `budget.py` | budget di precisione, bootstrap, validazione held-out |
+| `budget.py` | budget di precisione, bootstrap, held-out, finestra di scommessa |
 | `uniformita.py` | chi-quadro sugli 8 diamanti, potenza, Holm, validazione |
 | `numeri.py` | dal diamante al numero: fase del rotore, rimbalzo, margine |
 | `video.py` | calibrazione, tripwire, sub-frame, caduta, fase del rotore |

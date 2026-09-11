@@ -400,6 +400,143 @@ def validazione_incrociata(spin_list, n_giri=4, modello=mdl.Lineare,
     return esito
 
 
+# Quanti giri di boccia si puo' stare davanti alla caduta e avere ancora
+# qualcosa da dire. Misurato con `finestra_di_scommessa` su spin simulati:
+# l'informazione sul diamante si spegne fra i 3 e i 5 giri di anticipo, e
+# sotto i 2 diventa buona. Non e' una costante fisica - dipende da quanto
+# ripete la ruota - ma come ordine di grandezza regge su tutte le qualita' di
+# ruota provate, perche' a quegli anticipi domina l'estrapolazione e non la
+# soglia.
+ANTICIPO_UTILE_GIRI = 3.5
+ANTICIPO_BUONO_GIRI = 2.0
+
+
+def finestra_di_scommessa(spin_list, anticipi=(0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0),
+                          n_giri=5, modello=mdl.Lineare, n_settori=8, seme=0):
+    """Quanto vale la previsione, in funzione dell'ANTICIPO con cui ci si impegna.
+
+    L'anticipo e' il tempo fra l'ULTIMO DATO UTILIZZABILE e l'uscita della
+    boccia dalla pista. Mette insieme in un numero solo le due cose che di
+    solito si contano separate e che invece agiscono allo stesso modo:
+
+        anticipo = (quanto prima della caduta chiudono le scommesse)
+                 + (quanto ci metti a calcolare e piazzare la puntata)
+
+    Un secondo speso a piazzare le fiches pesa esattamente quanto un secondo
+    di chiusura anticipata. Misurato: raddoppiare il tempo di posa da 1 a 2
+    secondi fa piu' danno che passare da una ruota buona a una mediocre.
+
+    Per ogni anticipo si calibra omega_c su meta' degli spin - con quella
+    stessa finestra, perche' il bias di estrapolazione dipende dall'anticipo -
+    e si misura sull'altra meta'.
+
+    ATTENZIONE A COSA E' QUESTA FUNZIONE. Per ritagliare la finestra usa
+    l'istante di caduta VERO, che dal vivo non si conosce: e' un'analisi
+    controfattuale ("se mi fossi impegnato L secondi prima, quanto avrei
+    azzeccato?"), non una procedura di gioco. Dal vivo il cancello e'
+    `Previsione.giri_residui`, che il modello stima da solo.
+
+    Ritorna una riga per anticipo, con la probabilita' di centrare il diamante
+    e quella di starci entro uno.
+    """
+    rng = np.random.default_rng(seme)
+    ordine = rng.permutation(len(spin_list))
+    meta = max(1, len(spin_list) // 2)
+    calibrazione = [spin_list[i] for i in ordine[:meta]]
+    prova = [spin_list[i] for i in ordine[meta:]]
+    larghezza_settore = DUE_PI / n_settori
+
+    def finestra(spin, anticipo):
+        t = np.asarray(spin.tempi, dtype=float)
+        limite = spin.t_caduta - anticipo
+        t = t[t <= limite]
+        return t[-n_giri:] if t.size >= 3 else None
+
+    righe = []
+    for anticipo in anticipi:
+        valori = []
+        for s in calibrazione:
+            t = finestra(s, anticipo)
+            if t is None:
+                continue
+            try:
+                w = mdl.adatta(t, modello).omega(s.t_caduta)
+            except (ValueError, np.linalg.LinAlgError):
+                continue
+            if math.isfinite(w) and w > 0:
+                valori.append(w)
+        if len(valori) < 10:
+            continue
+        omega_c = float(np.mean(valori))
+        sigma_omega_c = float(np.std(valori, ddof=1))
+
+        errori, giri, centro, entro_uno, n = [], [], 0, 0, 0
+        for s in prova:
+            t = finestra(s, anticipo)
+            if t is None:
+                continue
+            try:
+                a = mdl.adatta(t, modello)
+                pr = mdl.prevedi(a, omega_c, sigma_omega_c=sigma_omega_c,
+                                 angolo_tripwire=getattr(s, "angolo_tripwire", 0.0))
+            except (ValueError, RuntimeError, np.linalg.LinAlgError):
+                continue
+            if not math.isfinite(pr.t_caduta):
+                continue
+            errori.append(pr.t_caduta - s.t_caduta)
+            giri.append(pr.giri_residui)
+            scarto = abs((pr.angolo - s.angolo_caduta + math.pi) % DUE_PI - math.pi)
+            centro += scarto < 0.5 * larghezza_settore
+            entro_uno += scarto < 1.5 * larghezza_settore
+            n += 1
+        if n < 20:
+            continue
+        e = np.array(errori)
+        righe.append({
+            "anticipo": float(anticipo),
+            "giri_residui": float(np.mean(giri)),
+            "n": n,
+            "omega_c": omega_c,
+            "sigma_t": float(e.std(ddof=1)),
+            "p_diamante": centro / n,
+            "p_entro_uno": entro_uno / n,
+            "caso_diamante": 1.0 / n_settori,
+            "caso_entro_uno": 3.0 / n_settori,
+            "larghezza": 2.0 * float(e.std(ddof=1)) / tempo_per_settore(omega_c, n_settori),
+        })
+    return righe
+
+
+def anticipo_massimo(righe, margine=1.3):
+    """L'anticipo oltre il quale non resta niente da dire.
+
+    `margine` e' quanto la previsione deve battere il caso per contare: 1,3
+    vuol dire il 30% meglio del 12,5%, cioe' 16,3%. Sotto quella soglia il
+    vantaggio e' dentro il rumore di qualunque campione di dimensione
+    ragionevole, e dichiararlo e' gia' autoinganno.
+
+    Ritorna None se nemmeno l'anticipo piu' corto basta: e' l'esito che dice
+    "su questa ruota, con questa estrazione, non si passa".
+    """
+    buone = [r for r in righe if r["p_diamante"] >= margine * r["caso_diamante"]]
+    return max((r["anticipo"] for r in buone), default=None)
+
+
+def stampa_finestra(righe):
+    if not righe:
+        print("nessun anticipo valutabile")
+        return
+    caso = righe[0]["caso_diamante"]
+    print("anticipo  giri      sigma_t   settore    P(diamante)  P(entro uno)")
+    print("  (s)    residui     (ms)   (diamanti)   caso %.1f%%    caso %.1f%%"
+          % (100 * caso, 100 * righe[0]["caso_entro_uno"]))
+    print("-" * 70)
+    for r in righe:
+        print("%6.1f %8.1f %9.0f %10.1f %11.1f%% %12.1f%%"
+              % (r["anticipo"], r["giri_residui"], 1000 * r["sigma_t"], r["larghezza"],
+                 100 * r["p_diamante"], 100 * r["p_entro_uno"]))
+
+
 def tabella_precisione(spin_list, giri=(3, 4, 5, 6, 8),
                        modelli=(mdl.Lineare, mdl.Esponenziale, mdl.Misto),
                        omega_c=None, anticipo=0, seme=0):

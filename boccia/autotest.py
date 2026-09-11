@@ -227,6 +227,50 @@ def prove_budget():
               "lineare %.0f ms, misto %.0f ms" % (1000 * lin["rms_t"],
                                                   1000 * mis["rms_t"]))
 
+    # LA FINESTRA DI SCOMMESSA. L'informazione deve degradare con l'anticipo e
+    # spegnersi: se la previsione a cinque secondi dalla caduta valesse ancora
+    # qualcosa, vorrebbe dire che qualcosa nel giro di misura sta barando.
+    lunghi = sn.genera_sessione(400, seme=8, omega_iniziale=27.0, omega_c=9.0,
+                               sigma_omega_c=0.15, jitter_s=0.0015)
+    righe = bg.finestra_di_scommessa(lunghi, anticipi=(0.5, 1.5, 3.0, 5.0))
+    segna("la finestra di scommessa si valuta a tutti gli anticipi",
+          len(righe) == 4, "%d righe su 4" % len(righe))
+    if len(righe) == 4:
+        vicino_caduta, lontano = righe[0], righe[-1]
+        segna("vicino alla caduta la previsione batte il caso",
+              vicino_caduta["p_diamante"] > 2.0 * vicino_caduta["caso_diamante"],
+              "%.1f%% contro %.1f%%" % (100 * vicino_caduta["p_diamante"],
+                                        100 * vicino_caduta["caso_diamante"]))
+        segna("a cinque secondi di anticipo non resta informazione",
+              abs(lontano["p_diamante"] - lontano["caso_diamante"]) < 0.04,
+              "%.1f%% contro il caso %.1f%%" % (100 * lontano["p_diamante"],
+                                                100 * lontano["caso_diamante"]))
+        # `giri_residui` e' il cancello che `stima` usa dal vivo, quando
+        # l'istante di caduta non si conosce: deve crescere con l'anticipo, se
+        # no il cancello non distingue niente.
+        segna("i giri residui stimati crescono con l'anticipo",
+              all(righe[i]["giri_residui"] < righe[i + 1]["giri_residui"]
+                  for i in range(3)),
+              " < ".join("%.1f" % r["giri_residui"] for r in righe))
+        segna("sigma cresce con l'anticipo",
+              all(righe[i]["sigma_t"] < righe[i + 1]["sigma_t"] for i in range(3)),
+              " < ".join("%.0f" % (1000 * r["sigma_t"]) for r in righe) + " ms")
+        limite = bg.anticipo_massimo(righe)
+        segna("l'anticipo massimo utile cade fra 1 e 3 secondi",
+              limite is not None and 0.5 <= limite <= 3.0, "%s s" % limite)
+        segna("la costante ANTICIPO_UTILE_GIRI e' coerente con la misura",
+              any(abs(r["giri_residui"] - bg.ANTICIPO_UTILE_GIRI) < 2.0 and
+                  r["p_diamante"] < 1.6 * r["caso_diamante"] for r in righe),
+              "%.1f giri" % bg.ANTICIPO_UTILE_GIRI)
+
+    # Con un'estrazione rovinata nessun anticipo deve passare: la funzione deve
+    # saper dire "non si passa" invece di consigliare di chiudere piu' tardi.
+    rovinati = sn.genera_sessione(300, seme=8, omega_iniziale=27.0, omega_c=9.0,
+                                  sigma_omega_c=1.2, jitter_s=0.05)
+    segna("su una ruota impossibile non esiste anticipo utile",
+          bg.anticipo_massimo(bg.finestra_di_scommessa(
+              rovinati, anticipi=(0.5, 1.5, 3.0))) is None)
+
     d = bg.diagnosi_soglia(spin, n_giri=4)
     segna("la diagnosi rapida ritrova la soglia messa nel generatore",
           vicino(d["omega_c"], 9.0, 0.5), "omega_c = %.2f" % d["omega_c"])
