@@ -255,6 +255,28 @@ def prove_budget():
         segna("sigma cresce con l'anticipo",
               all(righe[i]["sigma_t"] < righe[i + 1]["sigma_t"] for i in range(3)),
               " < ".join("%.0f" % (1000 * r["sigma_t"]) for r in righe) + " ms")
+        # La distribuzione predittiva relativa: e' l'ingresso di
+        # `numeri.catena`, quindi deve essere una distribuzione vera e deve
+        # essere piccata sullo zero finche' la previsione vale qualcosa.
+        q = righe[0]["scarto_diamanti"]
+        segna("lo scarto in diamanti e' una distribuzione",
+              abs(sum(q) - 1.0) < 1e-9 and all(x >= 0 for x in q))
+        segna("ed e' piccata sul settore previsto vicino alla caduta",
+              q[0] == max(q) and q[0] > 2.0 / 8, "%.1f%% sullo zero" % (100 * q[0]))
+        lontano_q = righe[-1]["scarto_diamanti"]
+        segna("e piatta quando l'informazione e' finita",
+              max(lontano_q) < 2.0 / 8,
+              "massimo %.1f%% contro il piatto 12.5%%" % (100 * max(lontano_q)))
+
+        # Allargare il settore NON compra anticipo: il tasso assoluto sale ma
+        # il moltiplicatore sul caso no, e il moltiplicatore e' quello che
+        # paga. Prova che sorveglia la conclusione, perche' e' controintuitiva.
+        stretto = bg.anticipo_per_settore(righe, 1)
+        largo = bg.anticipo_per_settore(righe, 5)
+        segna("allargare il settore non compra anticipo",
+              stretto is not None and largo is not None and largo <= stretto,
+              "1 diamante fino a %.1f s, 5 diamanti fino a %.1f s" % (stretto, largo))
+
         limite = bg.anticipo_massimo(righe)
         segna("l'anticipo massimo utile cade fra 1 e 3 secondi",
               limite is not None and 0.5 <= limite <= 3.0, "%s s" % limite)

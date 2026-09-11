@@ -433,6 +433,64 @@ sposta la priorità in un posto inatteso: ridurre il gesto — una puntata sola 
 un settore invece di fiches sparse su numeri singoli — vale più che migliorare
 il modello.
 
+### Allargare il settore non compra tempo
+
+Sembra ovvio che rinunciare alla risoluzione — «non mi serve il numero, mi
+basta un settore» — permetta di impegnarsi prima. **Misurato, non è vero:**
+
+| anticipo | 1 diamante (caso 12,5%) | 3 diamanti (caso 37,5%) | 5 diamanti (caso 62,5%) |
+|---:|---:|---:|---:|
+| 0,5 s | 36,3% — ×2,91 | 81,2% — ×2,16 | 96,0% — ×1,54 |
+| 1,2 s | 27,0% — ×2,16 | 71,3% — ×1,90 | 90,8% — ×1,45 |
+| 2,0 s | 18,2% — ×1,45 | 51,8% — ×1,38 | 78,0% — ×1,25 |
+| 3,0 s | 12,0% — ×0,96 | 36,8% — ×0,98 | 65,7% — ×1,05 |
+
+Il tasso assoluto sale col settore, ma il **moltiplicatore sul caso** scende, e
+il moltiplicatore è quello che paga: un settore da 5 diamanti ha un tetto di
+×1,6 perché il caso è già 62,5%. Le tre colonne muoiono allo stesso anticipo.
+Allargare il settore compra *probabilità*, non *tempo*.
+
+### Il tempo minimo, con mezzo secondo per piazzare
+
+Il conto che conta davvero non è la probabilità sul diamante ma il **margine
+sui numeri**, cioè il settore previsto fatto passare attraverso la fase del
+rotore e il rimbalzo. Con `t_posa = 0,5 s`, rotore a 0,6 giri/s, ruota che
+ripete all'1,7%:
+
+| rimbalzo | margine positivo fino a | sopra +20% fino a | ⟹ chiusura al più |
+|---|---:|---:|---|
+| 5 caselle | 3,2 s di anticipo | 2,2 s | 2,7 s / **1,7 s** prima della caduta |
+| 7 caselle | 3,2 s | 2,0 s | 2,7 s / **1,5 s** prima della caduta |
+| 10 caselle | 2,6 s | 1,5 s | 2,1 s / **1,0 s** prima della caduta |
+
+> **Risposta secca.** Con mezzo secondo per piazzare, le puntate devono restare
+> aperte fino a **~1,5 s prima che la boccia lasci la pista** perché resti un
+> margine che si possa davvero usare. A 2,5 s prima si è già al pareggio, cioè
+> a niente. Su uno spin da 8,7 s vuol dire una finestra di **~7,2 s, l'83% del
+> volo**.
+
+Il pareggio non è un obiettivo: a +5% di margine servono **9900 spin** per
+distinguerlo dallo zero, a +10% ne servono 2600. Solo da **+20% in su** (692
+spin) il vantaggio è dimostrabile in un tempo umano — ed è esattamente la
+colonna «sopra +20%» della tabella.
+
+**La regola osservabile**, che non richiede di sapere in anticipo quando cadrà
+la boccia: l'ultimo giro che riesci a cronometrare deve durare almeno
+
+| anticipo | giri residui | durata dell'ultimo giro |
+|---:|---:|---:|
+| 1,2 s | 1,9 | 546 ms |
+| 2,0 s | 3,4 | **488 ms** |
+| 2,9 s | 5,3 | 434 ms |
+
+Cioè: **se l'ultimo giro che hai potuto misurare è più veloce di ~490 ms, salta
+lo spin.** È un criterio che si applica dal vivo, senza conoscere la caduta.
+
+```
+python -m boccia finestra sessione.json --posa 0.5 --rimbalzo 7
+```
+
+
 ### La durata dello spin varia, quindi non si gioca ogni colpo
 
 Il croupier chiude a orologio, non a giri residui, e la durata dello spin varia
@@ -454,7 +512,7 @@ un tavolo dove si aspetta il colpo giusto, e la selezione va decisa *prima* di
 vedere il risultato, se no si torna a misurarsi addosso.
 
 ```
-python -m boccia finestra sessione.json --posa 1.0
+python -m boccia finestra sessione.json --posa 0.5 --rimbalzo 7
 ```
 
 Dal vivo l'istante di caduta non si conosce, quindi il cancello non è
@@ -494,7 +552,7 @@ per fidarsi di sé.
 pip install numpy
 pip install opencv-python-headless      # solo per leggere i file video
 
-python -m boccia autotest               # le verifiche (88, tutte verdi)
+python -m boccia autotest               # le verifiche (93, tutte verdi)
 python -m boccia autotest --pesante     # include la catena su video sintetico
 
 # provare la catena senza avere video
@@ -506,7 +564,7 @@ python -m boccia estrai video/*.mp4 --uscita sessione.json --tripwire 0
 # nell'ordine giusto
 python -m boccia uniformita sessione.json
 python -m boccia budget sessione.json
-python -m boccia finestra sessione.json --posa 1.0
+python -m boccia finestra sessione.json --posa 0.5 --rimbalzo 7
 python -m boccia numeri sessione.json --rimbalzo 7
 python -m boccia stima sessione.json --giri 4
 ```

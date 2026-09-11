@@ -412,7 +412,8 @@ ANTICIPO_BUONO_GIRI = 2.0
 
 
 def finestra_di_scommessa(spin_list, anticipi=(0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0),
-                          n_giri=5, modello=mdl.Lineare, n_settori=8, seme=0):
+                          n_giri=5, modello=mdl.Lineare, n_settori=8, seme=0,
+                          ampiezze=(1, 3, 5)):
     """Quanto vale la previsione, in funzione dell'ANTICIPO con cui ci si impegna.
 
     L'anticipo e' il tempo fra l'ULTIMO DATO UTILIZZABILE e l'uscita della
@@ -436,8 +437,13 @@ def finestra_di_scommessa(spin_list, anticipi=(0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0
     azzeccato?"), non una procedura di gioco. Dal vivo il cancello e'
     `Previsione.giri_residui`, che il modello stima da solo.
 
-    Ritorna una riga per anticipo, con la probabilita' di centrare il diamante
-    e quella di starci entro uno.
+    `ampiezze` sono le larghezze di settore da valutare, in numero di diamanti
+    contigui (1 = il diamante esatto, 3 = quello e i due vicini). Un settore
+    largo tollera piu' anticipo di uno stretto, ed e' la leva da usare quando
+    la finestra e' corta: si rinuncia a risoluzione per comprare tempo.
+
+    Ritorna una riga per anticipo, con la probabilita' di centrare ogni
+    ampiezza e il rapporto col caso.
     """
     rng = np.random.default_rng(seme)
     ordine = rng.permutation(len(spin_list))
@@ -470,7 +476,9 @@ def finestra_di_scommessa(spin_list, anticipi=(0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0
         omega_c = float(np.mean(valori))
         sigma_omega_c = float(np.std(valori, ddof=1))
 
-        errori, giri, centro, entro_uno, n = [], [], 0, 0, 0
+        errori, giri, n = [], [], 0
+        colpiti = {a: 0 for a in ampiezze}
+        scarti = np.zeros(n_settori)
         for s in prova:
             t = finestra(s, anticipo)
             if t is None:
@@ -486,22 +494,34 @@ def finestra_di_scommessa(spin_list, anticipi=(0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0
             errori.append(pr.t_caduta - s.t_caduta)
             giri.append(pr.giri_residui)
             scarto = abs((pr.angolo - s.angolo_caduta + math.pi) % DUE_PI - math.pi)
-            centro += scarto < 0.5 * larghezza_settore
-            entro_uno += scarto < 1.5 * larghezza_settore
+            for a in ampiezze:
+                colpiti[a] += scarto < 0.5 * a * larghezza_settore
+            # Dove finisce la boccia RISPETTO al settore previsto: e' la
+            # distribuzione predittiva, quella da dare in pasto a
+            # `numeri.catena` per sapere se resta un margine.
+            relativo = (s.angolo_caduta - pr.angolo) % DUE_PI
+            scarti[int(math.floor(relativo / larghezza_settore)) % n_settori] += 1
             n += 1
         if n < 20:
             continue
         e = np.array(errori)
+        settori = {a: {"p": colpiti[a] / n,
+                       "caso": min(1.0, a / n_settori),
+                       "guadagno": (colpiti[a] / n) / min(1.0, a / n_settori)}
+                   for a in ampiezze}
+        primo = ampiezze[0]
         righe.append({
             "anticipo": float(anticipo),
             "giri_residui": float(np.mean(giri)),
             "n": n,
             "omega_c": omega_c,
             "sigma_t": float(e.std(ddof=1)),
-            "p_diamante": centro / n,
-            "p_entro_uno": entro_uno / n,
-            "caso_diamante": 1.0 / n_settori,
-            "caso_entro_uno": 3.0 / n_settori,
+            "settori": settori,
+            "scarto_diamanti": (scarti / scarti.sum()).tolist(),
+            "p_diamante": settori[primo]["p"],
+            "caso_diamante": settori[primo]["caso"],
+            "p_entro_uno": settori.get(3, settori[primo])["p"],
+            "caso_entro_uno": settori.get(3, settori[primo])["caso"],
             "larghezza": 2.0 * float(e.std(ddof=1)) / tempo_per_settore(omega_c, n_settori),
         })
     return righe
@@ -526,15 +546,30 @@ def stampa_finestra(righe):
     if not righe:
         print("nessun anticipo valutabile")
         return
-    caso = righe[0]["caso_diamante"]
-    print("anticipo  giri      sigma_t   settore    P(diamante)  P(entro uno)")
-    print("  (s)    residui     (ms)   (diamanti)   caso %.1f%%    caso %.1f%%"
-          % (100 * caso, 100 * righe[0]["caso_entro_uno"]))
-    print("-" * 70)
+    ampiezze = sorted(righe[0]["settori"])
+    testa = "".join("  %d dia (caso %.0f%%)" % (a, 100 * righe[0]["settori"][a]["caso"])
+                    for a in ampiezze)
+    print("anticipo  giri    sigma_t" + testa)
+    print("  (s)    residui   (ms)  " + "".join("   P     x caso  " for _ in ampiezze))
+    print("-" * (26 + 17 * len(ampiezze)))
     for r in righe:
-        print("%6.1f %8.1f %9.0f %10.1f %11.1f%% %12.1f%%"
-              % (r["anticipo"], r["giri_residui"], 1000 * r["sigma_t"], r["larghezza"],
-                 100 * r["p_diamante"], 100 * r["p_entro_uno"]))
+        riga = "%6.1f %8.1f %8.0f" % (r["anticipo"], r["giri_residui"], 1000 * r["sigma_t"])
+        for a in ampiezze:
+            d = r["settori"][a]
+            riga += " %6.1f%% %6.2f " % (100 * d["p"], d["guadagno"])
+        print(riga)
+
+
+def anticipo_per_settore(righe, ampiezza, guadagno=1.3):
+    """Il massimo anticipo a cui un settore di `ampiezza` diamanti batte ancora
+    il caso di un fattore `guadagno`.
+
+    E' la funzione da usare quando non serve il numero ma solo il settore: dice
+    quanto tempo compri allargandolo.
+    """
+    buone = [r["anticipo"] for r in righe
+             if ampiezza in r["settori"] and r["settori"][ampiezza]["guadagno"] >= guadagno]
+    return max(buone, default=None)
 
 
 def tabella_precisione(spin_list, giri=(3, 4, 5, 6, 8),

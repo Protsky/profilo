@@ -190,6 +190,22 @@ def comando_finestra(args):
     print("secondo di chiusura anticipata.")
     print()
     bg.stampa_finestra(righe)
+
+    if args.rimbalzo > 0:
+        print()
+        print("Margine sui NUMERI, convertendo il settore previsto attraverso la fase")
+        print("del rotore (%.1f giri/s) e il rimbalzo (%.0f caselle di sigma):"
+              % (args.rotore, args.rimbalzo))
+        print("  anticipo   dispersione totale   margine su %d numeri" % args.coperti)
+        for r in righe:
+            cat = nm.catena(r["scarto_diamanti"], r["sigma_t"], args.rotore,
+                            args.rimbalzo, n_numeri=args.numeri,
+                            coperti=(args.coperti,))
+            print("  %6.1f s %14.2f caselle %+13.1f%%"
+                  % (r["anticipo"], cat["dispersione_totale"],
+                     100 * cat["righe"][0]["margine"]))
+        print("  (pareggio a 0; il banco della roulette europea vale -2,7%)")
+
     print()
     limite = bg.anticipo_massimo(righe, margine=args.margine)
     if limite is None:
@@ -385,6 +401,11 @@ def principale(argomenti=None):
                    help="quanto deve battere il caso per contare (1.3 = +30%%)")
     w.add_argument("--posa", type=float, default=1.0,
                    help="secondi per calcolare e piazzare la puntata")
+    w.add_argument("--rimbalzo", type=float, default=7.0,
+                   help="dispersione del rimbalzo in caselle (0 per non stimare il margine)")
+    w.add_argument("--rotore", type=float, default=0.6, help="velocita' del rotore, giri/s")
+    w.add_argument("--coperti", type=int, default=5, help="numeri coperti dalla puntata")
+    w.add_argument("--numeri", type=int, default=37)
     w.add_argument("--seme", type=int, default=0)
     w.set_defaults(funzione=comando_finestra)
 
